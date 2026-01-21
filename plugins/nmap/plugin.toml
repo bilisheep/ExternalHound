@@ -1,0 +1,7 @@
+[plugin]
+name = "nmap"
+version = "1.0.0"
+entrypoint = "plugin.py:NmapParser"
+supported_formats = ["xml"]
+priority = 10
+description = "Nmap XML parser"
