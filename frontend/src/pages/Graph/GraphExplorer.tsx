@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
   Card,
   Descriptions,
+  Divider,
   Empty,
   Form,
   Input,
@@ -14,7 +15,7 @@ import {
   message,
 } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
-import type { EdgeData, GraphData, NodeData } from '@antv/g6';
+import type { EdgeData, GraphData, NodeData } from '@/types/graph';
 import {
   useAllAssets,
   useUpdateCertificate,
@@ -94,6 +95,9 @@ const GraphExplorer = () => {
   const [editingNode, setEditingNode] = useState<NodeEditDraft | null>(null);
   const [isEditNodeOpen, setIsEditNodeOpen] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [relatedNodeId, setRelatedNodeId] = useState<string | null>(null);
+  const [pathStartNodeId, setPathStartNodeId] = useState<string | null>(null);
+  const [pathEndNodeId, setPathEndNodeId] = useState<string | null>(null);
 
   const updateFilters = (next: Partial<typeof filters>) => {
     setFilters((prev) => ({ ...prev, ...next }));
@@ -210,6 +214,37 @@ const GraphExplorer = () => {
 
   const handleNodeClick = (nodeId: string) => {
     setSelectedNodeId(nodeId);
+  };
+
+  const updateRelatedNode = (value?: string) => {
+    const nextValue = value ?? null;
+    setRelatedNodeId(nextValue);
+    if (nextValue) {
+      setPathStartNodeId(null);
+      setPathEndNodeId(null);
+    }
+  };
+
+  const updatePathStartNode = (value?: string) => {
+    const nextValue = value ?? null;
+    setPathStartNodeId(nextValue);
+    if (nextValue) {
+      setRelatedNodeId(null);
+    }
+  };
+
+  const updatePathEndNode = (value?: string) => {
+    const nextValue = value ?? null;
+    setPathEndNodeId(nextValue);
+    if (nextValue) {
+      setRelatedNodeId(null);
+    }
+  };
+
+  const clearGraphFilter = () => {
+    setRelatedNodeId(null);
+    setPathStartNodeId(null);
+    setPathEndNodeId(null);
   };
 
 
@@ -428,7 +463,7 @@ const GraphExplorer = () => {
 
   const activeNodeMutation = editingNode ? getNodeUpdateMutation(editingNode.nodeType) : null;
 
-  const graphData = useMemo<GraphData>(() => {
+  const baseGraphData = useMemo<GraphData>(() => {
     const nodes = new Map<string, NodeData>();
     const edges: EdgeData[] = [];
     const addNode = (type: NodeType, externalId: string, label: string) => {
@@ -524,6 +559,127 @@ const GraphExplorer = () => {
     };
   }, [allAssets, allRelationships, relationshipTypeLabel]);
 
+  const nodeSelectOptions = useMemo(() => {
+    return (baseGraphData.nodes ?? [])
+      .map((node) => {
+        const nodeType = node.data?.type as NodeType | undefined;
+        const typeLabel = nodeType ? t(`nodeType.${nodeType}`) : nodeType ?? 'Unknown';
+        const label = node.data?.label ?? String(node.id);
+        return {
+          value: String(node.id),
+          label: `${typeLabel} / ${label}`,
+          search: `${typeLabel} ${label} ${String(node.id)}`.toLowerCase(),
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [baseGraphData.nodes, t]);
+
+  const filterNodeOption = (input: string, option?: { search?: string }) =>
+    (option?.search ?? '').includes(input.toLowerCase());
+
+  const graphData = useMemo<GraphData>(() => {
+    const nodes = baseGraphData.nodes ?? [];
+    const edges = baseGraphData.edges ?? [];
+    if (!nodes.length) {
+      return baseGraphData;
+    }
+
+    if (relatedNodeId) {
+      const relatedEdges = edges.filter(
+        (edge) => String(edge.source) === relatedNodeId || String(edge.target) === relatedNodeId
+      );
+      const relatedNodeIds = new Set<string>([relatedNodeId]);
+      relatedEdges.forEach((edge) => {
+        relatedNodeIds.add(String(edge.source));
+        relatedNodeIds.add(String(edge.target));
+      });
+      return {
+        nodes: nodes.filter((node) => relatedNodeIds.has(String(node.id))),
+        edges: relatedEdges,
+      };
+    }
+
+    if (pathStartNodeId && pathEndNodeId) {
+      if (pathStartNodeId === pathEndNodeId) {
+        return {
+          nodes: nodes.filter((node) => String(node.id) === pathStartNodeId),
+          edges: [],
+        };
+      }
+
+      const getEdgeKey = (edge: EdgeData) =>
+        edge.id ? String(edge.id) : `${String(edge.source)}-${String(edge.target)}`;
+      const adjacency = new Map<string, Array<{ target: string; edgeId: string }>>();
+      edges.forEach((edge) => {
+        const source = String(edge.source);
+        const target = String(edge.target);
+        const edgeId = getEdgeKey(edge);
+        const list = adjacency.get(source) ?? [];
+        list.push({ target, edgeId });
+        adjacency.set(source, list);
+      });
+
+      const queue: string[] = [pathStartNodeId];
+      const visited = new Set<string>([pathStartNodeId]);
+      const previous = new Map<string, { nodeId: string; edgeId: string }>();
+      let found = false;
+
+      while (queue.length > 0 && !found) {
+        const current = queue.shift();
+        if (!current) {
+          continue;
+        }
+        const neighbors = adjacency.get(current) ?? [];
+        for (const { target, edgeId } of neighbors) {
+          if (visited.has(target)) {
+            continue;
+          }
+          visited.add(target);
+          previous.set(target, { nodeId: current, edgeId });
+          if (target === pathEndNodeId) {
+            found = true;
+            break;
+          }
+          queue.push(target);
+        }
+      }
+
+      if (!found) {
+        return { nodes: [], edges: [] };
+      }
+
+      const pathNodeIds = new Set<string>([pathEndNodeId]);
+      const pathEdgeIds = new Set<string>();
+      let cursor = pathEndNodeId;
+      while (cursor !== pathStartNodeId) {
+        const step = previous.get(cursor);
+        if (!step) {
+          return { nodes: [], edges: [] };
+        }
+        pathEdgeIds.add(step.edgeId);
+        pathNodeIds.add(step.nodeId);
+        cursor = step.nodeId;
+      }
+
+      return {
+        nodes: nodes.filter((node) => pathNodeIds.has(String(node.id))),
+        edges: edges.filter((edge) => pathEdgeIds.has(getEdgeKey(edge))),
+      };
+    }
+
+    return baseGraphData;
+  }, [baseGraphData, relatedNodeId, pathStartNodeId, pathEndNodeId]);
+
+  useEffect(() => {
+    if (!selectedNodeId) {
+      return;
+    }
+    const exists = (graphData.nodes ?? []).some((node) => String(node.id) === selectedNodeId);
+    if (!exists) {
+      setSelectedNodeId(null);
+    }
+  }, [graphData.nodes, selectedNodeId]);
+
   return (
     <Space direction="vertical" size={24} style={{ width: '100%' }}>
       <Card>
@@ -610,6 +766,38 @@ const GraphExplorer = () => {
             <Select.Option value={true}>{t('common.yes')}</Select.Option>
             <Select.Option value={false}>{t('common.no')}</Select.Option>
           </Select>
+          <Divider type="vertical" />
+          <Select
+            placeholder={t('graph.relatedNode')}
+            style={{ width: 220 }}
+            allowClear
+            showSearch
+            value={relatedNodeId ?? undefined}
+            options={nodeSelectOptions}
+            filterOption={filterNodeOption}
+            onChange={(value) => updateRelatedNode(value)}
+          />
+          <Select
+            placeholder={t('graph.pathStartNode')}
+            style={{ width: 220 }}
+            allowClear
+            showSearch
+            value={pathStartNodeId ?? undefined}
+            options={nodeSelectOptions}
+            filterOption={filterNodeOption}
+            onChange={(value) => updatePathStartNode(value)}
+          />
+          <Select
+            placeholder={t('graph.pathEndNode')}
+            style={{ width: 220 }}
+            allowClear
+            showSearch
+            value={pathEndNodeId ?? undefined}
+            options={nodeSelectOptions}
+            filterOption={filterNodeOption}
+            onChange={(value) => updatePathEndNode(value)}
+          />
+          <Button onClick={clearGraphFilter}>{t('graph.clearFilter')}</Button>
           <Space size={6}>
             <span>{t(isLinkMode ? 'graph.linkMode' : 'graph.dragMode')}</span>
             <Switch checked={isLinkMode} onChange={setIsLinkMode} />
@@ -655,9 +843,20 @@ const GraphExplorer = () => {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center' }}>
                   <h3 style={{ margin: 0, fontSize: 16 }}>{t('common.details')}</h3>
-                  <Button size="small" onClick={() => setSelectedNodeId(null)}>
-                    X
-                  </Button>
+                  <Space size={8} wrap>
+                    <Button size="small" onClick={() => selectedNodeId && updateRelatedNode(selectedNodeId)}>
+                      {t('graph.filterRelated')}
+                    </Button>
+                    <Button size="small" onClick={() => selectedNodeId && updatePathStartNode(selectedNodeId)}>
+                      {t('graph.setAsStart')}
+                    </Button>
+                    <Button size="small" onClick={() => selectedNodeId && updatePathEndNode(selectedNodeId)}>
+                      {t('graph.setAsEnd')}
+                    </Button>
+                    <Button size="small" onClick={() => setSelectedNodeId(null)}>
+                      X
+                    </Button>
+                  </Space>
                 </div>
                 <Descriptions column={1} size="small" bordered>
                   <Descriptions.Item label={t('fields.type')}>
