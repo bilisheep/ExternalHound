@@ -2,12 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
   Card,
+  Collapse,
   Descriptions,
-  Divider,
+  Drawer,
   Empty,
   Form,
   Input,
   Modal,
+  Row,
+  Col,
   Select,
   Space,
   Spin,
@@ -79,7 +82,8 @@ const GraphExplorer = () => {
   const [editRelationshipForm] = Form.useForm();
   const [editNodeForm] = Form.useForm();
   const [isLinkMode, setIsLinkMode] = useState(false);
-  const [filters, setFilters] = useState({
+
+  const defaultRelationshipFilters = {
     source_external_id: undefined as string | undefined,
     source_type: undefined as NodeType | undefined,
     target_external_id: undefined as string | undefined,
@@ -87,8 +91,10 @@ const GraphExplorer = () => {
     relation_type: undefined as RelationshipType | undefined,
     edge_key: undefined as string | undefined,
     include_deleted: undefined as boolean | undefined,
-  });
+  };
+  const [filters, setFilters] = useState(defaultRelationshipFilters);
   const [draftEdge, setDraftEdge] = useState<EdgeDraft | null>(null);
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [isCreateRelationshipOpen, setIsCreateRelationshipOpen] = useState(false);
   const [editingRelationship, setEditingRelationship] = useState<RelationshipRecord | null>(null);
   const [isEditRelationshipOpen, setIsEditRelationshipOpen] = useState(false);
@@ -241,7 +247,11 @@ const GraphExplorer = () => {
     }
   };
 
-  const clearGraphFilter = () => {
+  const clearRelationshipFilters = () => {
+    setFilters({ ...defaultRelationshipFilters });
+  };
+
+  const clearViewFilters = () => {
     setRelatedNodeId(null);
     setPathStartNodeId(null);
     setPathEndNodeId(null);
@@ -500,7 +510,10 @@ const GraphExplorer = () => {
       });
       allAssets.services.forEach((service) => {
         const label =
-          service.service_name || `${service.port}/${service.protocol}` || service.external_id;
+          service.product ||
+          service.service_name ||
+          `${service.port}/${service.protocol}` ||
+          service.external_id;
         addNode('Service', service.external_id, label);
       });
       allAssets.certificates.forEach((certificate) => {
@@ -680,214 +693,369 @@ const GraphExplorer = () => {
     }
   }, [graphData.nodes, selectedNodeId]);
 
+  // Styles
+  const filterLabelStyle = {
+    fontSize: 12,
+    fontWeight: 500,
+    color: '#64748b',
+  };
+
+  const detailLabelStyle = {
+    color: '#64748b',
+    fontSize: 12,
+  };
+
+  const detailContentStyle = {
+    color: '#0f172a',
+    fontSize: 13,
+  };
+
   return (
-    <Space direction="vertical" size={24} style={{ width: '100%' }}>
-      <Card>
-        <Space wrap>
-          <Input
-            placeholder={t('fields.sourceExternalId')}
-            style={{ width: 180 }}
-            allowClear
-            value={filters.source_external_id ?? ''}
-            onChange={(event) =>
-              updateFilters({
-                source_external_id: event.target.value || undefined,
-              })
-            }
-          />
-          <Select
-            placeholder={t('fields.sourceType')}
-            style={{ width: 160 }}
-            allowClear
-            value={filters.source_type}
-            onChange={(value) => updateFilters({ source_type: value })}
-          >
-            {nodeTypeOptions.map((option) => (
-              <Select.Option key={option} value={option}>
-                {t(`nodeType.${option}`)}
-              </Select.Option>
-            ))}
-          </Select>
-          <Input
-            placeholder={t('fields.targetExternalId')}
-            style={{ width: 180 }}
-            allowClear
-            value={filters.target_external_id ?? ''}
-            onChange={(event) =>
-              updateFilters({
-                target_external_id: event.target.value || undefined,
-              })
-            }
-          />
-          <Select
-            placeholder={t('fields.targetType')}
-            style={{ width: 160 }}
-            allowClear
-            value={filters.target_type}
-            onChange={(value) => updateFilters({ target_type: value })}
-          >
-            {nodeTypeOptions.map((option) => (
-              <Select.Option key={option} value={option}>
-                {t(`nodeType.${option}`)}
-              </Select.Option>
-            ))}
-          </Select>
-          <Select
-            placeholder={t('fields.relationType')}
-            style={{ width: 180 }}
-            allowClear
-            value={filters.relation_type}
-            onChange={(value) => updateFilters({ relation_type: value })}
-          >
-            {relationshipTypeOptions.map((option) => (
-              <Select.Option key={option} value={option}>
-                {relationshipTypeLabel(option)}
-              </Select.Option>
-            ))}
-          </Select>
-          <Input
-            placeholder={t('fields.edgeKey')}
-            style={{ width: 160 }}
-            allowClear
-            value={filters.edge_key ?? ''}
-            onChange={(event) =>
-              updateFilters({
-                edge_key: event.target.value || undefined,
-              })
-            }
-          />
-          <Select
-            placeholder={t('fields.includeDeleted')}
-            style={{ width: 160 }}
-            allowClear
-            value={filters.include_deleted}
-            onChange={(value) => updateFilters({ include_deleted: value })}
-          >
-            <Select.Option value={true}>{t('common.yes')}</Select.Option>
-            <Select.Option value={false}>{t('common.no')}</Select.Option>
-          </Select>
-          <Divider type="vertical" />
-          <Select
-            placeholder={t('graph.relatedNode')}
-            style={{ width: 220 }}
-            allowClear
-            showSearch
-            value={relatedNodeId ?? undefined}
-            options={nodeSelectOptions}
-            filterOption={filterNodeOption}
-            onChange={(value) => updateRelatedNode(value)}
-          />
-          <Select
-            placeholder={t('graph.pathStartNode')}
-            style={{ width: 220 }}
-            allowClear
-            showSearch
-            value={pathStartNodeId ?? undefined}
-            options={nodeSelectOptions}
-            filterOption={filterNodeOption}
-            onChange={(value) => updatePathStartNode(value)}
-          />
-          <Select
-            placeholder={t('graph.pathEndNode')}
-            style={{ width: 220 }}
-            allowClear
-            showSearch
-            value={pathEndNodeId ?? undefined}
-            options={nodeSelectOptions}
-            filterOption={filterNodeOption}
-            onChange={(value) => updatePathEndNode(value)}
-          />
-          <Button onClick={clearGraphFilter}>{t('graph.clearFilter')}</Button>
-          <Space size={6}>
-            <span>{t(isLinkMode ? 'graph.linkMode' : 'graph.dragMode')}</span>
-            <Switch checked={isLinkMode} onChange={setIsLinkMode} />
-          </Space>
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={() => {
-              refetchRelationships();
-              refetchAssets();
-            }}
-          >
-            {t('common.refresh')}
-          </Button>
-        </Space>
-      </Card>
-      <Card title={t('menu.graph')} bodyStyle={{ padding: 0 }}>
-        <Spin spinning={relationshipsLoading || relationshipsFetching || assetsLoading || assetsFetching}>
-          <div style={{ display: 'flex', height: 640 }}>
-            <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-              {graphData.nodes && graphData.nodes.length > 0 ? (
-                <GraphCanvas
-                  ref={graphRef}
-                  data={graphData}
-                  linkMode={isLinkMode}
-                  onCreateEdge={handleCreateEdge}
-                  onEdgeClick={handleEdgeClick}
-                  onNodeDoubleClick={handleNodeDoubleClick}
-                  onNodeClick={handleNodeClick}
-                />
-              ) : (
-                <Empty style={{ padding: 32 }} />
-              )}
-            </div>
-            {selectedNodeInfo && (
-              <div
-                style={{
-                  width: 320,
-                  borderLeft: '1px solid #f0f0f0',
-                  padding: 16,
-                  overflowY: 'auto',
-                  backgroundColor: '#fff',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center' }}>
-                  <h3 style={{ margin: 0, fontSize: 16 }}>{t('common.details')}</h3>
-                  <Space size={8} wrap>
-                    <Button size="small" onClick={() => selectedNodeId && updateRelatedNode(selectedNodeId)}>
-                      {t('graph.filterRelated')}
-                    </Button>
-                    <Button size="small" onClick={() => selectedNodeId && updatePathStartNode(selectedNodeId)}>
-                      {t('graph.setAsStart')}
-                    </Button>
-                    <Button size="small" onClick={() => selectedNodeId && updatePathEndNode(selectedNodeId)}>
-                      {t('graph.setAsEnd')}
-                    </Button>
-                    <Button size="small" onClick={() => setSelectedNodeId(null)}>
-                      X
-                    </Button>
-                  </Space>
-                </div>
-                <Descriptions column={1} size="small" bordered>
-                  <Descriptions.Item label={t('fields.type')}>
-                    {t(`nodeType.${selectedNodeInfo.nodeType}`)}
-                  </Descriptions.Item>
-                  <Descriptions.Item label={t('fields.externalId')}>
-                    <span style={{ wordBreak: 'break-all' }}>{selectedNodeInfo.externalId}</span>
-                  </Descriptions.Item>
-                </Descriptions>
-                {selectedNodeInfo.metadata && Object.keys(selectedNodeInfo.metadata).length > 0 && (
-                  <div style={{ marginTop: 16 }}>
-                    <h4 style={{ marginBottom: 8, fontSize: 14 }}>{t('common.metadata')}</h4>
-                    <pre
-                      style={{
-                        fontSize: 11,
-                        overflowX: 'auto',
-                        backgroundColor: '#f5f5f5',
-                        padding: 8,
-                        borderRadius: 4,
-                        border: '1px solid #d9d9d9',
-                      }}
-                    >
-                      {JSON.stringify(selectedNodeInfo.metadata, null, 2)}
-                    </pre>
-                  </div>
+    <div style={{ width: '100%', height: '100vh', padding: 24, boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 16 }}>
+        {/* Toolbar */}
+        <Card
+          size="small"
+          style={{
+            borderRadius: 12,
+            borderColor: '#e2e8f0',
+          }}
+          styles={{
+            body: { padding: '8px 16px' },
+          }}
+        >
+          <Row align="middle" justify="space-between" style={{ width: '100%' }} wrap gutter={[12, 8]}>
+            <Col>
+              <Space size={12} wrap>
+                <Button size="small" onClick={() => setIsFilterDrawerOpen(true)}>
+                  {t('graph.filters')}
+                </Button>
+              </Space>
+            </Col>
+            <Col>
+              <Space size={12} wrap>
+                <Space size={8}>
+                  <span style={filterLabelStyle}>
+                    {t(isLinkMode ? 'graph.linkMode' : 'graph.dragMode')}
+                  </span>
+                  <Switch checked={isLinkMode} onChange={setIsLinkMode} />
+                </Space>
+                <Button
+                  size="small"
+                  icon={<ReloadOutlined />}
+                  onClick={() => {
+                    refetchRelationships();
+                    refetchAssets();
+                  }}
+                >
+                  {t('common.refresh')}
+                </Button>
+              </Space>
+            </Col>
+          </Row>
+        </Card>
+
+        {/* Graph Card */}
+        <Card
+          title={t('menu.graph')}
+          className="graph-card"
+          style={{ flex: 1, minHeight: 0 }}
+          styles={{ body: { padding: 0 } }}
+        >
+          <div style={{ height: '100%', position: 'relative' }}>
+            <Spin
+              spinning={relationshipsLoading || relationshipsFetching || assetsLoading || assetsFetching}
+              wrapperClassName="graph-spin-wrapper"
+            >
+              <div style={{ height: '100%' }}>
+                {graphData.nodes && graphData.nodes.length > 0 ? (
+                  <GraphCanvas
+                    ref={graphRef}
+                    data={graphData}
+                    linkMode={isLinkMode}
+                    onCreateEdge={handleCreateEdge}
+                    onEdgeClick={handleEdgeClick}
+                    onNodeDoubleClick={handleNodeDoubleClick}
+                    onNodeClick={handleNodeClick}
+                  />
+                ) : (
+                  <Empty style={{ padding: 32 }} />
                 )}
               </div>
-            )}
+            </Spin>
           </div>
-        </Spin>
-      </Card>
+        </Card>
+      </div>
+
+      {/* Filter Drawer */}
+      <Drawer
+        title={t('graph.filters')}
+        placement="left"
+        width={400}
+        open={isFilterDrawerOpen}
+        onClose={() => setIsFilterDrawerOpen(false)}
+        styles={{ body: { padding: 16 } }}
+      >
+        <Form layout="vertical" requiredMark={false} colon={false} size="small">
+          <Collapse
+            bordered={false}
+            defaultActiveKey={['relationship', 'view']}
+            items={[
+              {
+                key: 'relationship',
+                label: t('graph.relationshipFilters'),
+                children: (
+                  <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                    <Form.Item
+                      label={<span style={filterLabelStyle}>{t('fields.sourceExternalId')}</span>}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Input
+                        placeholder={t('fields.sourceExternalId')}
+                        allowClear
+                        value={filters.source_external_id ?? ''}
+                        onChange={(event) =>
+                          updateFilters({
+                            source_external_id: event.target.value || undefined,
+                          })
+                        }
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label={<span style={filterLabelStyle}>{t('fields.sourceType')}</span>}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Select
+                        placeholder={t('fields.sourceType')}
+                        allowClear
+                        value={filters.source_type}
+                        onChange={(value) => updateFilters({ source_type: value })}
+                      >
+                        {nodeTypeOptions.map((option) => (
+                          <Select.Option key={option} value={option}>
+                            {t(`nodeType.${option}`)}
+                          </Select.Option>
+                        ))}
+                      </Select>
+                    </Form.Item>
+                    <Form.Item
+                      label={<span style={filterLabelStyle}>{t('fields.targetExternalId')}</span>}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Input
+                        placeholder={t('fields.targetExternalId')}
+                        allowClear
+                        value={filters.target_external_id ?? ''}
+                        onChange={(event) =>
+                          updateFilters({
+                            target_external_id: event.target.value || undefined,
+                          })
+                        }
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label={<span style={filterLabelStyle}>{t('fields.targetType')}</span>}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Select
+                        placeholder={t('fields.targetType')}
+                        allowClear
+                        value={filters.target_type}
+                        onChange={(value) => updateFilters({ target_type: value })}
+                      >
+                        {nodeTypeOptions.map((option) => (
+                          <Select.Option key={option} value={option}>
+                            {t(`nodeType.${option}`)}
+                          </Select.Option>
+                        ))}
+                      </Select>
+                    </Form.Item>
+                    <Form.Item
+                      label={<span style={filterLabelStyle}>{t('fields.relationType')}</span>}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Select
+                        placeholder={t('fields.relationType')}
+                        allowClear
+                        value={filters.relation_type}
+                        onChange={(value) => updateFilters({ relation_type: value })}
+                      >
+                        {relationshipTypeOptions.map((option) => (
+                          <Select.Option key={option} value={option}>
+                            {relationshipTypeLabel(option)}
+                          </Select.Option>
+                        ))}
+                      </Select>
+                    </Form.Item>
+                    <Form.Item
+                      label={<span style={filterLabelStyle}>{t('fields.edgeKey')}</span>}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Input
+                        placeholder={t('fields.edgeKey')}
+                        allowClear
+                        value={filters.edge_key ?? ''}
+                        onChange={(event) =>
+                          updateFilters({
+                            edge_key: event.target.value || undefined,
+                          })
+                        }
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label={<span style={filterLabelStyle}>{t('fields.includeDeleted')}</span>}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Select
+                        placeholder={t('fields.includeDeleted')}
+                        allowClear
+                        value={filters.include_deleted}
+                        onChange={(value) => updateFilters({ include_deleted: value })}
+                      >
+                        <Select.Option value={true}>{t('common.yes')}</Select.Option>
+                        <Select.Option value={false}>{t('common.no')}</Select.Option>
+                      </Select>
+                    </Form.Item>
+                    <Button size="small" block onClick={clearRelationshipFilters}>
+                      {t('graph.clearRelationshipFilters')}
+                    </Button>
+                  </Space>
+                ),
+              },
+              {
+                key: 'view',
+                label: t('graph.viewFilters'),
+                children: (
+                  <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                    <Form.Item
+                      label={<span style={filterLabelStyle}>{t('graph.relatedNode')}</span>}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Select
+                        placeholder={t('graph.relatedNode')}
+                        allowClear
+                        showSearch
+                        value={relatedNodeId ?? undefined}
+                        options={nodeSelectOptions}
+                        filterOption={filterNodeOption}
+                        onChange={(value) => updateRelatedNode(value)}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label={<span style={filterLabelStyle}>{t('graph.pathStartNode')}</span>}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Select
+                        placeholder={t('graph.pathStartNode')}
+                        allowClear
+                        showSearch
+                        value={pathStartNodeId ?? undefined}
+                        options={nodeSelectOptions}
+                        filterOption={filterNodeOption}
+                        onChange={(value) => updatePathStartNode(value)}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      label={<span style={filterLabelStyle}>{t('graph.pathEndNode')}</span>}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Select
+                        placeholder={t('graph.pathEndNode')}
+                        allowClear
+                        showSearch
+                        value={pathEndNodeId ?? undefined}
+                        options={nodeSelectOptions}
+                        filterOption={filterNodeOption}
+                        onChange={(value) => updatePathEndNode(value)}
+                      />
+                    </Form.Item>
+                    <Button size="small" block onClick={clearViewFilters}>
+                      {t('graph.clearViewFilters')}
+                    </Button>
+                  </Space>
+                ),
+              },
+            ]}
+          />
+        </Form>
+      </Drawer>
+
+      {/* Detail Drawer */}
+      <Drawer
+        title={t('common.details')}
+        placement="right"
+        width={400}
+        open={!!selectedNodeInfo}
+        onClose={() => setSelectedNodeId(null)}
+        destroyOnClose
+        styles={{ body: { padding: 16, backgroundColor: '#f8fafc' } }}
+        extra={
+          selectedNodeInfo ? (
+            <Space size={6} wrap>
+              <Button
+                size="small"
+                type="text"
+                onClick={() => selectedNodeId && updateRelatedNode(selectedNodeId)}
+              >
+                {t('graph.filterRelated')}
+              </Button>
+              <Button
+                size="small"
+                type="text"
+                onClick={() => selectedNodeId && updatePathStartNode(selectedNodeId)}
+              >
+                {t('graph.setAsStart')}
+              </Button>
+              <Button
+                size="small"
+                type="text"
+                onClick={() => selectedNodeId && updatePathEndNode(selectedNodeId)}
+              >
+                {t('graph.setAsEnd')}
+              </Button>
+            </Space>
+          ) : null
+        }
+      >
+        {selectedNodeInfo && (
+          <>
+            <Descriptions
+              column={1}
+              size="small"
+              bordered={false}
+              labelStyle={detailLabelStyle}
+              contentStyle={detailContentStyle}
+            >
+              <Descriptions.Item label={t('fields.type')}>
+                {t(`nodeType.${selectedNodeInfo.nodeType}`)}
+              </Descriptions.Item>
+              <Descriptions.Item label={t('fields.externalId')}>
+                <span style={{ wordBreak: 'break-all' }}>{selectedNodeInfo.externalId}</span>
+              </Descriptions.Item>
+            </Descriptions>
+            {selectedNodeInfo.metadata && Object.keys(selectedNodeInfo.metadata).length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <h4 style={{ marginBottom: 8, fontSize: 13, color: '#475569' }}>
+                  {t('common.metadata')}
+                </h4>
+                <pre
+                  style={{
+                    fontSize: 12,
+                    overflowX: 'auto',
+                    backgroundColor: '#eef2f6',
+                    padding: 10,
+                    borderRadius: 8,
+                    border: '1px solid #e2e8f0',
+                    color: '#0f172a',
+                  }}
+                >
+                  {JSON.stringify(selectedNodeInfo.metadata, null, 2)}
+                </pre>
+              </div>
+            )}
+          </>
+        )}
+      </Drawer>
 
       <Modal
         title={t('actions.create', { item: t('entities.relationship') })}
@@ -1010,7 +1178,7 @@ const GraphExplorer = () => {
           </Form.Item>
         </Form>
       </Modal>
-    </Space>
+    </div>
   );
 };
 

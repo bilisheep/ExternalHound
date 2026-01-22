@@ -17,3 +17,22 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* Fix for graph card flex layout */
+.graph-card {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+
+.graph-card > .ant-card-body {
+  flex: 1 !important;
+  min-height: 0 !important;
+}
+
+/* Fix for Spin wrapper height in graph */
+.graph-spin-wrapper,
+.graph-spin-wrapper .ant-spin-nested-loading,
+.graph-spin-wrapper .ant-spin-container {
+  height: 100% !important;
+}

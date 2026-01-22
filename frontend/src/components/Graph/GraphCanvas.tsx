@@ -580,7 +580,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
         ref={containerRef}
         style={{
           width: '100%',
-          height: 640,
+          height: '100%',
           background: CANVAS_BACKGROUND,
           border: `1px solid ${CANVAS_BORDER}`,
           borderRadius: 12,
