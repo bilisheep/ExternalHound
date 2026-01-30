@@ -18,6 +18,7 @@ from app.api.v1.assets import (
 )
 from app.api.v1.relationships import relationship_router
 from app.api.v1.imports import router as import_router
+from app.api.v1.projects import router as project_router
 
 # 创建v1路由器
 api_router = APIRouter(prefix="/v1")
@@ -35,5 +36,6 @@ api_router.include_router(credential_router)
 # 注册关系路由
 api_router.include_router(relationship_router)
 api_router.include_router(import_router)
+api_router.include_router(project_router)
 
 __all__ = ["api_router"]

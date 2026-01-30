@@ -18,6 +18,7 @@ from app.config import settings
 from app.core.exceptions import AppError
 from app.db.postgres import db_manager
 from app.db.neo4j import neo4j_manager
+from app.services.projects.config import ensure_default_project_config
 
 
 @asynccontextmanager
@@ -29,6 +30,7 @@ async def lifespan(app: FastAPI):
     """
     # 启动时初始化数据库
     db_manager.init_engine()
+    await ensure_default_project_config()
     await neo4j_manager.connect()
     yield
     # 关闭时清理资源

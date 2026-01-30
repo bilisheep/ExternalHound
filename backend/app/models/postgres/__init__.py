@@ -17,6 +17,7 @@ from app.models.postgres.import_log import ImportLog
 from app.models.postgres.operation_log import OperationLog
 from app.models.postgres.tag import Tag
 from app.models.postgres.asset_tag import AssetTag
+from app.models.postgres.project_config import ProjectConfig
 
 __all__ = [
     "Organization",
@@ -32,4 +33,5 @@ __all__ = [
     "OperationLog",
     "Tag",
     "AssetTag",
+    "ProjectConfig",
 ]

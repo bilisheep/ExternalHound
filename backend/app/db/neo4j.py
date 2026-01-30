@@ -6,13 +6,34 @@ graph database operations.
 """
 
 import logging
-from typing import Any
+from contextvars import ContextVar
+from dataclasses import dataclass
+from typing import Any, AsyncGenerator
 
 from neo4j import AsyncGraphDatabase, AsyncDriver
 
 from app.config import settings
+from app.db.postgres import load_project_config
+from app.utils.projects import (
+    DEFAULT_PROJECT_ID,
+    PROJECT_HEADER,
+    resolve_project_id,
+)
+from fastapi import HTTPException, Request, status
 
 logger = logging.getLogger(__name__)
+
+@dataclass(frozen=True)
+class Neo4jConnection:
+    uri: str
+    user: str
+    password: str
+
+
+CURRENT_NEO4J_CONNECTION: ContextVar[Neo4jConnection | None] = ContextVar(
+    "current_neo4j_connection",
+    default=None,
+)
 
 
 class Neo4jManager:
@@ -25,53 +46,42 @@ class Neo4jManager:
 
     def __init__(self) -> None:
         """Initialize the Neo4j manager."""
-        self._driver: AsyncDriver | None = None
+        self._drivers: dict[Neo4jConnection, AsyncDriver] = {}
 
     async def connect(self) -> None:
         """
-        Initialize the Neo4j driver.
-
-        Raises:
-            RuntimeError: If driver is already initialized.
+        Initialize the default Neo4j driver.
         """
-        if self._driver is not None:
+        default_connection = self._default_connection()
+        if default_connection in self._drivers:
             logger.warning("Neo4j driver already initialized")
             return
-
-        self._driver = AsyncGraphDatabase.driver(
-            settings.NEO4J_URI,
-            auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
-            max_connection_pool_size=50,
-            connection_acquisition_timeout=60,
-        )
-        logger.info("Neo4j driver initialized: %s", settings.NEO4J_URI)
+        self._drivers[default_connection] = self._create_driver(default_connection)
+        logger.info("Neo4j driver initialized: %s", default_connection.uri)
 
     async def close(self) -> None:
         """Close the Neo4j driver and release resources."""
-        if self._driver is None:
+        if not self._drivers:
             logger.warning("Neo4j driver not initialized")
             return
-
-        await self._driver.close()
-        self._driver = None
-        logger.info("Neo4j driver closed")
+        for driver in self._drivers.values():
+            await driver.close()
+        self._drivers.clear()
+        logger.info("Neo4j drivers closed")
 
     @property
     def driver(self) -> AsyncDriver:
         """
-        Return the initialized driver.
+        Return the driver for the current project connection.
 
-        Returns:
-            AsyncDriver: The Neo4j async driver instance.
-
-        Raises:
-            RuntimeError: If driver is not initialized.
+        Falls back to the default Neo4j connection if none is set.
         """
-        if self._driver is None:
-            raise RuntimeError(
-                "Neo4j driver not initialized. Call connect() first."
-            )
-        return self._driver
+        connection = CURRENT_NEO4J_CONNECTION.get() or self._default_connection()
+        driver = self._drivers.get(connection)
+        if driver is None:
+            driver = self._create_driver(connection)
+            self._drivers[connection] = driver
+        return driver
 
     async def execute_query(
         self,
@@ -89,12 +99,31 @@ class Neo4jManager:
             List of result records as dictionaries.
 
         Raises:
-            RuntimeError: If driver is not initialized.
             Exception: If query execution fails.
         """
         async with self.driver.session() as session:
             result = await session.run(query, parameters or {})
             return await result.data()
+
+    def ensure_connection(self, connection: Neo4jConnection) -> None:
+        if connection in self._drivers:
+            return
+        self._drivers[connection] = self._create_driver(connection)
+
+    def _default_connection(self) -> Neo4jConnection:
+        return Neo4jConnection(
+            uri=settings.NEO4J_URI,
+            user=settings.NEO4J_USER,
+            password=settings.NEO4J_PASSWORD,
+        )
+
+    def _create_driver(self, connection: Neo4jConnection) -> AsyncDriver:
+        return AsyncGraphDatabase.driver(
+            connection.uri,
+            auth=(connection.user, connection.password),
+            max_connection_pool_size=50,
+            connection_acquisition_timeout=60,
+        )
 
     async def merge_node(
         self,
@@ -189,16 +218,87 @@ class Neo4jManager:
         """
         await self.execute_query(query, {"rel_id": rel_id})
 
+    async def delete_node_relationships(self, label: str, node_id: str) -> None:
+        """
+        Delete all relationships connected to a node.
+
+        Args:
+            label: Node label
+            node_id: Unique node identifier
+
+        Raises:
+            RuntimeError: If driver is not initialized.
+            Exception: If delete operation fails.
+        """
+        query = f"""
+        MATCH (n:{label} {{id: $node_id}})-[r]-()
+        DELETE r
+        """
+        await self.execute_query(query, {"node_id": node_id})
+
 
 # Global Neo4j manager instance
 neo4j_manager = Neo4jManager()
 
 
-async def get_neo4j() -> Neo4jManager:
+async def get_neo4j(request: Request) -> AsyncGenerator[Neo4jManager, None]:
     """
-    Dependency to provide Neo4j manager.
+    Dependency to provide Neo4j manager scoped by project.
 
-    Returns:
-        Neo4jManager: The global Neo4j manager instance.
+    Sets the current Neo4j connection based on the project header.
     """
-    return neo4j_manager
+    try:
+        project_id = resolve_project_id(request.headers.get(PROJECT_HEADER))
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    config_row = await load_project_config(project_id, request)
+    if project_id != DEFAULT_PROJECT_ID and not config_row:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Project Neo4j configuration is missing",
+        )
+
+    if config_row and any(
+        [
+            config_row.get("neo4j_uri"),
+            config_row.get("neo4j_user"),
+            config_row.get("neo4j_password"),
+        ]
+    ):
+        if not all(
+            [
+                config_row.get("neo4j_uri"),
+                config_row.get("neo4j_user"),
+                config_row.get("neo4j_password"),
+            ]
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Neo4j configuration is incomplete",
+            )
+        connection = Neo4jConnection(
+            uri=str(config_row.get("neo4j_uri")),
+            user=str(config_row.get("neo4j_user")),
+            password=str(config_row.get("neo4j_password")),
+        )
+    elif project_id != DEFAULT_PROJECT_ID:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Neo4j configuration is incomplete",
+        )
+    else:
+        connection = Neo4jConnection(
+            uri=settings.NEO4J_URI,
+            user=settings.NEO4J_USER,
+            password=settings.NEO4J_PASSWORD,
+        )
+    neo4j_manager.ensure_connection(connection)
+    token = CURRENT_NEO4J_CONNECTION.set(connection)
+    try:
+        yield neo4j_manager
+    finally:
+        CURRENT_NEO4J_CONNECTION.reset(token)

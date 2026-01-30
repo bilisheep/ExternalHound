@@ -12,7 +12,10 @@ from pathlib import Path
 from typing import Any
 
 import tomllib
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource
+
+from app.utils.projects import DEFAULT_PROJECT_ID
 
 
 CONFIG_ENV_VAR = "EXTERNALHOUND_CONFIG"
@@ -56,6 +59,12 @@ class TomlConfigSettingsSource(PydanticBaseSettingsSource):
         return f"TomlConfigSettingsSource(config_path={self.config_path!s})"
 
 
+class Neo4jProjectSettings(BaseModel):
+    uri: str
+    user: str
+    password: str
+
+
 class Settings(BaseSettings):
     """
     应用程序配置类
@@ -82,6 +91,7 @@ class Settings(BaseSettings):
     NEO4J_URI: str
     NEO4J_USER: str
     NEO4J_PASSWORD: str
+    NEO4J_PROJECTS: dict[str, Neo4jProjectSettings] = Field(default_factory=dict)
 
     # Redis 配置
     REDIS_HOST: str
@@ -166,6 +176,22 @@ class Settings(BaseSettings):
         if sslmode in {"require", "verify-ca", "verify-full"}:
             return {"ssl": True}
         return {}
+
+    def resolve_neo4j_project(self, project_id: str) -> Neo4jProjectSettings:
+        """
+        Resolve Neo4j instance config for a project.
+
+        Non-default projects must be explicitly configured.
+        """
+        if project_id in self.NEO4J_PROJECTS:
+            return self.NEO4J_PROJECTS[project_id]
+        if project_id == DEFAULT_PROJECT_ID:
+            return Neo4jProjectSettings(
+                uri=self.NEO4J_URI,
+                user=self.NEO4J_USER,
+                password=self.NEO4J_PASSWORD,
+            )
+        raise KeyError(f"Neo4j instance for project '{project_id}' is not configured")
 
     def _resolve_postgres_sslmode(self) -> str | None:
         if self.POSTGRES_SSLMODE:
