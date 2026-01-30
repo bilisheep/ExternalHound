@@ -13,7 +13,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-TBD-yellow.svg)](LICENSE)
 
-[功能特性](#核心功能) • [快速开始](#快速开始) • [文档](doc/) • [部署指南](DEPLOYMENT.md) • [贡献指南](#贡献指南)
+[功能特性](#核心功能) • [快速开始](#快速开始) • [文档](#文档) • [部署指南](DEPLOYMENT.md) • [贡献指南](#贡献指南)
 
 </div>
 
@@ -64,10 +64,14 @@ ExternalHound 是一个专为渗透测试和安全评估设计的资产管理平
 使用自动化脚本快速启动完整开发环境：
 
 ```bash
-# 1. 初始化项目（首次运行）
+# 1. 克隆仓库
+git clone https://github.com/bilisheep/ExternalHound.git
+cd ExternalHound
+
+# 2. 初始化项目（首次运行）
 ./scripts/bootstrap.sh
 
-# 2. 启动开发环境
+# 3. 启动开发环境
 ./scripts/dev.sh
 ```
 
@@ -85,26 +89,6 @@ ExternalHound 是一个专为渗透测试和安全评估设计的资产管理平
 - 启动后端服务（http://localhost:8000）
 - 启动前端服务（http://localhost:5173）
 
-### 手动启动
-
-如果需要单独启动各个服务：
-
-```bash
-# 1. 启动基础设施 (PostgreSQL, Neo4j, MinIO, Redis)
-docker-compose up -d
-
-# 2. 启动后端服务 (http://localhost:8000)
-cd backend
-pip install -r requirements.txt
-alembic upgrade head
-uvicorn app.main:app --reload
-
-# 3. 启动前端服务 (http://localhost:5173)
-cd frontend
-npm install
-npm run dev
-```
-
 访问 http://localhost:5173 即可使用系统。
 
 ### 配置说明
@@ -116,7 +100,6 @@ npm run dev
 **后端配置**:
 - 复制 `backend/config.example.toml` 为 `backend/config.toml`
 - 或复制 `backend/.env.example` 为 `backend/.env` (可选)
-- 根目录 `.env` 可配置共享配置（docker-compose 和后端都会读取）
 
 **前端配置**:
 - 复制 `frontend/.env.example` 为 `frontend/.env`
@@ -224,71 +207,29 @@ ExternalHound/
 
 ## 开发指南
 
-### 后端开发
+### 快速上手
+
+1. **后端开发**: 参考 [doc/DEVELOPMENT.md](doc/DEVELOPMENT.md) 了解如何添加 API、修改数据库、调试等
+2. **前端开发**: 参考 [doc/DEVELOPMENT.md](doc/DEVELOPMENT.md) 了解如何添加页面、使用 Hooks、调用 API 等
+3. **插件开发**: 参考 [doc/PLUGIN_DEVELOPMENT.md](doc/PLUGIN_DEVELOPMENT.md) 学习如何开发解析器插件
+
+### 常见操作
 
 ```bash
-cd backend
+# 查看 API 文档
+http://localhost:8000/docs
 
-# 创建虚拟环境
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 运行数据库迁移
-alembic upgrade head
-
-# 启动开发服务器 (热重载)
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# 运行测试
-pytest
-```
-
-**API 文档**: http://localhost:8000/docs (Swagger UI)
-
-### 前端开发
-
-```bash
-cd frontend
-
-# 安装依赖
-npm install
-
-# 启动开发服务器 (热重载)
-npm run dev
-
-# 构建生产版本
-npm run build
-
-# 预览构建结果
-npm run preview
-```
-
-### 数据库操作
-
-```bash
-# 创建新迁移
+# 数据库迁移
 cd backend
 alembic revision --autogenerate -m "描述"
-
-# 应用迁移
 alembic upgrade head
 
-# 回滚迁移
-alembic downgrade -1
-
-# 查看迁移历史
-alembic history
+# 运行测试
+cd backend && pytest
+cd frontend && npm test
 ```
 
-### 添加新的解析器插件
-
-1. 在 `backend/app/parsers/` 创建新解析器类
-2. 实现 `BaseParser` 接口
-3. 在 `plugin.toml` 注册插件
-4. 重启后端服务自动加载
+详细的开发指南、调试技巧、性能优化、故障排查等请参考 [doc/DEVELOPMENT.md](doc/DEVELOPMENT.md)
 
 ## 部署
 
@@ -313,351 +254,19 @@ alembic history
 ## 文档
 
 详细技术文档位于 `doc/` 目录 (中文):
+
+**开发文档**:
+- [开发指南](doc/DEVELOPMENT.md) - 环境搭建、后端/前端开发、数据库操作、调试技巧等
+- [插件开发指南](doc/PLUGIN_DEVELOPMENT.md) - 如何开发自定义解析器插件
+- [配置说明](backend/CONFIG.md) - 配置管理、环境变量、优先级等
+
+**设计文档**:
 - [技术架构设计](doc/ExternalHound 技术架构设计文档.md)
 - [技术选型说明](doc/ExternalHound 技术选型文档 v1.0.md)
 - [数据库设计方案](doc/ExternalHound 数据库设计方案 v1.0.md)
 - [前端层设计](doc/ExternalHound 前端层设计 v1.0.md)
 - [后端API层设计](doc/ExternalHound 后端API层设计 v1.0.md)
 - [数据导入与解析层设计](doc/ExternalHound 数据导入与解析层设计 v1.0.md)
-
-## 常见问题
-
-### 环境问题
-
-**Q: 后端启动失败，提示数据库连接错误？**
-A: 确保 Docker Compose 服务已启动且健康:
-```bash
-docker-compose ps
-# 所有服务应显示 healthy 状态
-
-# 查看服务日志
-docker-compose logs postgres
-docker-compose logs neo4j
-```
-
-**Q: 前端无法连接后端 API？**
-A: 检查前端配置和网络连接:
-```bash
-# 1. 检查后端是否启动
-curl http://localhost:8000/health
-
-# 2. 检查前端配置
-cat frontend/.env | grep VITE_API_BASE_URL
-
-# 3. 检查浏览器控制台网络请求
-```
-
-**Q: Docker 容器启动失败？**
-A: 检查端口占用和资源限制:
-```bash
-# 检查端口占用
-lsof -i :5432  # PostgreSQL
-lsof -i :7474  # Neo4j HTTP
-lsof -i :7687  # Neo4j Bolt
-lsof -i :9000  # MinIO API
-lsof -i :6379  # Redis
-
-# 检查 Docker 资源
-docker system df
-docker stats
-```
-
-### 数据库问题
-
-**Q: Neo4j 内存不足？**
-A: 调整 `docker-compose.yml` 中的 Neo4j 内存配置:
-```yaml
-environment:
-  NEO4J_dbms_memory_heap_initial__size: 1G    # 初始堆内存
-  NEO4J_dbms_memory_heap_max__size: 4G        # 最大堆内存
-  NEO4J_dbms_memory_pagecache_size: 2G        # 页面缓存
-```
-
-**Q: PostgreSQL 性能慢？**
-A: 检查索引和配置:
-```bash
-# 连接数据库
-docker exec -it externalhound-postgres psql -U postgres -d externalhound
-
-# 检查慢查询
-SELECT * FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 10;
-
-# 检查索引使用情况
-SELECT * FROM pg_stat_user_indexes;
-```
-
-**Q: 数据库迁移失败？**
-A: 回滚并重新执行:
-```bash
-cd backend
-alembic downgrade -1  # 回滚一个版本
-alembic upgrade head  # 重新应用迁移
-
-# 查看当前版本
-alembic current
-
-# 查看迁移历史
-alembic history
-```
-
-### 配置问题
-
-**Q: 如何支持多个项目隔离？**
-A: 在 `backend/config.toml` 中配置独立的 Neo4j 实例:
-```toml
-# 默认项目使用默认 Neo4j
-NEO4J_URI = "bolt://localhost:7687"
-
-# 项目 A 使用独立实例
-[NEO4J_PROJECTS.project_a]
-uri = "bolt://localhost:7688"
-user = "neo4j"
-password = "project_a_password"
-
-# 项目 B 使用独立实例
-[NEO4J_PROJECTS.project_b]
-uri = "bolt://localhost:7689"
-user = "neo4j"
-password = "project_b_password"
-```
-
-**Q: 如何修改上传文件大小限制？**
-A: 修改 `backend/config.toml`:
-```toml
-MAX_UPLOAD_SIZE = 209715200  # 200MB (字节)
-```
-
-**Q: 上传文件存储在哪里？**
-A:
-- **开发环境**: `/tmp/externalhound/uploads` (临时)
-- **生产环境**: 建议配置 MinIO 对象存储
-- 详见 [backend/CONFIG.md](backend/CONFIG.md)
-
-### 导入问题
-
-**Q: Nmap 导入失败？**
-A: 检查 XML 格式和日志:
-```bash
-# 1. 验证 XML 文件格式
-xmllint --noout your_scan.xml
-
-# 2. 查看导入日志
-# 通过 API 获取导入记录详情
-curl http://localhost:8000/api/v1/imports/{import_id}
-
-# 3. 确保 Nmap 输出包含必要信息
-nmap -sV -oX scan.xml target.com
-```
-
-**Q: 如何添加自定义解析器？**
-A: 参考 [数据导入与解析层设计](doc/ExternalHound 数据导入与解析层设计 v1.0.md)
-
-## API 使用示例
-
-### 认证（开发中）
-
-```bash
-# 获取访问令牌
-curl -X POST http://localhost:8000/api/v1/auth/token \
-  -H "Content-Type: application/json" \
-  -d '{"username": "admin", "password": "password"}'
-
-# 使用令牌访问 API
-curl -H "Authorization: Bearer YOUR_TOKEN" \
-  http://localhost:8000/api/v1/organizations
-```
-
-### 资产管理
-
-```bash
-# 创建组织
-curl -X POST http://localhost:8000/api/v1/organizations \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Example Corp",
-    "description": "Target organization",
-    "tags": ["high-risk"]
-  }'
-
-# 查询组织列表
-curl http://localhost:8000/api/v1/organizations?page=1&page_size=20
-
-# 查询组织详情
-curl http://localhost:8000/api/v1/organizations/{org_id}
-
-# 更新组织
-curl -X PUT http://localhost:8000/api/v1/organizations/{org_id} \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Updated Name"}'
-
-# 删除组织（软删除）
-curl -X DELETE http://localhost:8000/api/v1/organizations/{org_id}
-```
-
-### 域名管理
-
-```bash
-# 创建域名
-curl -X POST http://localhost:8000/api/v1/domains \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "example.com",
-    "organization_id": "org-uuid",
-    "dns_records": {"A": ["1.2.3.4"], "MX": ["mail.example.com"]},
-    "tags": ["production"]
-  }'
-
-# 查询域名（带过滤）
-curl "http://localhost:8000/api/v1/domains?organization_id=org-uuid&tags=production"
-```
-
-### 关系管理
-
-```bash
-# 创建资产关系
-curl -X POST http://localhost:8000/api/v1/relationships \
-  -H "Content-Type: application/json" \
-  -d '{
-    "source_id": "domain-uuid",
-    "source_type": "Domain",
-    "target_id": "ip-uuid",
-    "target_type": "IP",
-    "relationship_type": "RESOLVES_TO",
-    "properties": {"discovered_at": "2024-01-20"}
-  }'
-
-# 查询资产关系
-curl "http://localhost:8000/api/v1/relationships?source_id=domain-uuid"
-```
-
-### 文件导入
-
-```bash
-# 上传并导入 Nmap 扫描结果
-curl -X POST http://localhost:8000/api/v1/imports \
-  -F "file=@scan.xml" \
-  -F "organization_id=org-uuid" \
-  -F "parser=nmap"
-
-# 查看导入记录
-curl http://localhost:8000/api/v1/imports
-
-# 查看导入详情
-curl http://localhost:8000/api/v1/imports/{import_id}
-
-# 删除导入记录和关联数据
-curl -X DELETE http://localhost:8000/api/v1/imports/{import_id}
-```
-
-## 性能优化
-
-### 数据库优化
-
-**PostgreSQL**:
-```bash
-# 调整连接池大小（backend/config.toml）
-# 根据并发需求调整
-
-# 定期清理和分析
-docker exec -it externalhound-postgres psql -U postgres -d externalhound
-VACUUM ANALYZE;
-
-# 重建索引
-REINDEX DATABASE externalhound;
-```
-
-**Neo4j**:
-```bash
-# 调整内存（docker-compose.yml）
-# heap: 推荐为服务器内存的 1/4 到 1/2
-# pagecache: 推荐为剩余内存的大部分
-
-# 定期维护（Neo4j Browser）
-CALL db.stats.stop();
-CALL db.stats.start();
-```
-
-### 应用优化
-
-**后端**:
-- 启用 Redis 缓存
-- 使用连接池
-- 异步 I/O 处理
-- 批量操作 API
-
-**前端**:
-- 使用 React Query 缓存
-- 虚拟滚动大列表
-- 按需加载路由
-- 图谱分页渲染
-
-## 开发规范
-
-### 代码风格
-
-**Python (后端)**:
-```bash
-# 使用 Black 格式化
-black backend/app
-
-# 使用 Ruff 检查
-ruff check backend/app
-
-# 类型检查
-mypy backend/app
-```
-
-**TypeScript (前端)**:
-```bash
-# ESLint 检查
-npm run lint
-
-# 格式化
-npm run format
-
-# 类型检查
-npm run type-check
-```
-
-### Git 提交规范
-
-使用 [Conventional Commits](https://www.conventionalcommits.org/) 格式:
-
-```
-feat: 添加域名批量导入功能
-fix: 修复图谱渲染性能问题
-docs: 更新 API 文档
-style: 格式化代码
-refactor: 重构解析器插件系统
-test: 添加资产管理单元测试
-chore: 更新依赖版本
-```
-
-### 测试要求
-
-**后端测试**:
-```bash
-# 运行所有测试
-pytest
-
-# 运行特定测试
-pytest tests/test_assets.py
-
-# 生成覆盖率报告
-pytest --cov=app --cov-report=html
-
-# 查看覆盖率
-open htmlcov/index.html
-```
-
-**前端测试**:
-```bash
-# 运行测试
-npm test
-
-# 生成覆盖率
-npm run test:coverage
-```
 
 ## 贡献指南
 
@@ -685,7 +294,7 @@ npm run test:coverage
 
 1. 查看 [Issues](https://github.com/bilisheep/ExternalHound/issues) 了解待办事项
 2. 在 Issue 中评论表明你想要处理
-3. 遵循开发规范编写代码
+3. 遵循开发规范编写代码（详见 [DEVELOPMENT.md](doc/DEVELOPMENT.md)）
 4. 确保所有测试通过
 5. 提交 PR 并等待 Review
 
@@ -740,15 +349,6 @@ npm run test:coverage
 - 邮件：在 Issue 中说明"安全问题"，我们会私信联系
 
 我们会在 48 小时内回复，并在修复后公开致谢。
-
-### 当前环境安全建议
-
-- 定期更新依赖
-- 使用强密码
-- 启用 HTTPS/TLS
-- 限制网络访问
-- 定期备份数据
-- 监控异常行为
 
 ## 路线图
 
