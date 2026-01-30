@@ -39,6 +39,14 @@
 
 ExternalHound 是一个专为渗透测试和安全评估设计的资产管理平台，提供强大的数据聚合、关系分析和可视化能力。
 
+## 界面预览
+
+<div align="center">
+  <img src="doc/assets/longshot20260130101530.png" width="800" />
+  <img src="doc/assets/longshot20260130101540.png" width="800" />
+  <img src="doc/assets/longshot20260130101620.png" width="800" />
+</div>
+
 ### 主要特点
 
 - 🎯 **统一资产管理** - 支持 8 种资产类型，涵盖渗透测试全流程
@@ -259,68 +267,7 @@ cd frontend && npm test
 - [插件开发指南](doc/PLUGIN_DEVELOPMENT.md) - 如何开发自定义解析器插件
 - [配置说明](backend/CONFIG.md) - 配置管理、环境变量、优先级等
 
-## 贡献指南
 
-我们欢迎所有形式的贡献！
-
-### 如何贡献
-
-1. **Fork 本仓库**
-2. **创建特性分支** (`git checkout -b feature/AmazingFeature`)
-3. **提交更改** (`git commit -m 'feat: Add some AmazingFeature'`)
-4. **推送到分支** (`git push origin feature/AmazingFeature`)
-5. **创建 Pull Request**
-
-### 贡献类型
-
-- 🐛 报告 Bug
-- 💡 提出新功能建议
-- 📝 改进文档
-- 🔧 提交代码修复
-- ✨ 实现新功能
-- 🎨 改进 UI/UX
-- ⚡ 性能优化
-
-### 开发流程
-
-1. 查看 [Issues](https://github.com/bilisheep/ExternalHound/issues) 了解待办事项
-2. 在 Issue 中评论表明你想要处理
-3. 遵循开发规范编写代码（详见 [DEVELOPMENT.md](doc/DEVELOPMENT.md)）
-4. 确保所有测试通过
-5. 提交 PR 并等待 Review
-
-### Code Review
-
-- 所有 PR 需要至少一名维护者审核
-- CI 检查必须通过
-- 遵循代码风格规范
-- 包含必要的测试
-- 更新相关文档
-
-## 安全
-
-### ⚠️ 重要安全声明
-
-**本项目处于早期开发阶段，尚未实现完整的安全功能：**
-
-- ❌ 无用户认证和授权系统
-- ❌ 无访问控制和权限管理
-- ❌ 无审计日志和操作追踪
-- ❌ 默认配置包含明文密码
-- ❌ 无数据加密和安全传输
-- ❌ 未经过安全审计和渗透测试
-
-**请勿在以下场景使用：**
-- ❌ 生产环境
-- ❌ 公网暴露
-- ❌ 处理敏感数据
-- ❌ 多租户环境
-
-**仅适用于：**
-- ✅ 本地开发测试
-- ✅ 内网隔离环境
-- ✅ 个人学习研究
-- ✅ 功能验证演示
 
 ## 联系方式
 
