@@ -255,18 +255,9 @@ cd frontend && npm test
 
 详细技术文档位于 `doc/` 目录 (中文):
 
-**开发文档**:
 - [开发指南](doc/DEVELOPMENT.md) - 环境搭建、后端/前端开发、数据库操作、调试技巧等
 - [插件开发指南](doc/PLUGIN_DEVELOPMENT.md) - 如何开发自定义解析器插件
 - [配置说明](backend/CONFIG.md) - 配置管理、环境变量、优先级等
-
-**设计文档**:
-- [技术架构设计](doc/ExternalHound 技术架构设计文档.md)
-- [技术选型说明](doc/ExternalHound 技术选型文档 v1.0.md)
-- [数据库设计方案](doc/ExternalHound 数据库设计方案 v1.0.md)
-- [前端层设计](doc/ExternalHound 前端层设计 v1.0.md)
-- [后端API层设计](doc/ExternalHound 后端API层设计 v1.0.md)
-- [数据导入与解析层设计](doc/ExternalHound 数据导入与解析层设计 v1.0.md)
 
 ## 贡献指南
 

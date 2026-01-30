@@ -58,3 +58,6 @@ frontend.log
 # Data directories (Docker volumes)
 data/
 scans/
+
+# Design documents (internal only)
+doc/ExternalHound*.md
