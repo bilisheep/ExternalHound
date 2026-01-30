@@ -54,3 +54,7 @@ logs/
 *.log
 backend.log
 frontend.log
+
+# Data directories (Docker volumes)
+data/
+scans/
