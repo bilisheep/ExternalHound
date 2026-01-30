@@ -785,6 +785,7 @@ const GraphExplorer = () => {
             </Spin>
           </div>
         </Card>
+
       </div>
 
       {/* Filter Drawer */}

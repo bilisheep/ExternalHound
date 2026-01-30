@@ -1,12 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { message } from 'antd';
 import { relationshipsApi } from '@/services/api/relationships';
+import { useProject } from '@/contexts/ProjectContext';
 import type {
   RelationshipCreatePayload,
   RelationshipType,
   RelationshipUpdatePayload,
   NodeType,
 } from '@/types/relationship';
+
+const useProjectKey = () => {
+  const { currentProjectId } = useProject();
+  return ['project', currentProjectId] as const;
+};
 
 export const useRelationshipList = (params: {
   page?: number;
@@ -19,8 +25,9 @@ export const useRelationshipList = (params: {
   edge_key?: string;
   include_deleted?: boolean;
 }) => {
+  const projectKey = useProjectKey();
   return useQuery({
-    queryKey: ['relationships', params],
+    queryKey: [...projectKey, 'relationships', params],
     queryFn: () => relationshipsApi.getRelationships(params),
     staleTime: 5 * 60 * 1000,
   });
@@ -35,14 +42,16 @@ export const useAllRelationships = (params: {
   edge_key?: string;
   include_deleted?: boolean;
 }) => {
+  const projectKey = useProjectKey();
   return useQuery({
-    queryKey: ['relationships', 'all', params],
+    queryKey: [...projectKey, 'relationships', 'all', params],
     queryFn: () => relationshipsApi.getAllRelationships(params),
     staleTime: 5 * 60 * 1000,
   });
 };
 
 export const useCreateRelationship = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -50,7 +59,7 @@ export const useCreateRelationship = () => {
       relationshipsApi.createRelationship(payload),
     onSuccess: () => {
       message.success('Relationship created');
-      queryClient.invalidateQueries({ queryKey: ['relationships'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'relationships'] });
     },
     onError: () => {
       message.error('Relationship create failed');
@@ -59,6 +68,7 @@ export const useCreateRelationship = () => {
 };
 
 export const useUpdateRelationship = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -66,7 +76,7 @@ export const useUpdateRelationship = () => {
       relationshipsApi.updateRelationship(id, payload),
     onSuccess: () => {
       message.success('Relationship updated');
-      queryClient.invalidateQueries({ queryKey: ['relationships'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'relationships'] });
     },
     onError: () => {
       message.error('Relationship update failed');
@@ -75,13 +85,14 @@ export const useUpdateRelationship = () => {
 };
 
 export const useDeleteRelationship = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (id: string) => relationshipsApi.deleteRelationship(id),
     onSuccess: () => {
       message.success('Relationship deleted');
-      queryClient.invalidateQueries({ queryKey: ['relationships'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'relationships'] });
     },
     onError: () => {
       message.error('Relationship delete failed');

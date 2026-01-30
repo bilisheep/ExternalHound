@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { message } from 'antd';
 import { assetsApi } from '@/services/api/assets';
+import { useProject } from '@/contexts/ProjectContext';
 import type {
   ScopePolicy,
   IPCreatePayload,
@@ -21,9 +22,15 @@ import type {
   CredentialUpdatePayload,
 } from '@/types/asset';
 
+const useProjectKey = () => {
+  const { currentProjectId } = useProject();
+  return ['project', currentProjectId] as const;
+};
+
 export const useAllAssets = () => {
+  const projectKey = useProjectKey();
   return useQuery({
-    queryKey: ['assets', 'all'],
+    queryKey: [...projectKey, 'assets', 'all'],
     queryFn: () => assetsApi.getAllAssets(),
     staleTime: 5 * 60 * 1000,
   });
@@ -39,29 +46,32 @@ export const useIPList = (params: {
   country_code?: string;
   scope_policy?: ScopePolicy;
 }) => {
+  const projectKey = useProjectKey();
   return useQuery({
-    queryKey: ['ips', params],
+    queryKey: [...projectKey, 'ips', params],
     queryFn: () => assetsApi.getIPs(params),
     staleTime: 5 * 60 * 1000,
   });
 };
 
 export const useIPDetail = (address: string) => {
+  const projectKey = useProjectKey();
   return useQuery({
-    queryKey: ['ip', address],
+    queryKey: [...projectKey, 'ip', address],
     queryFn: () => assetsApi.getIPDetail(address),
     enabled: !!address,
   });
 };
 
 export const useCreateIP = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (payload: IPCreatePayload) => assetsApi.createIP(payload),
     onSuccess: () => {
       message.success('IP created');
-      queryClient.invalidateQueries({ queryKey: ['ips'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'ips'] });
     },
     onError: () => {
       message.error('IP create failed');
@@ -70,6 +80,7 @@ export const useCreateIP = () => {
 };
 
 export const useUpdateIP = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -77,8 +88,8 @@ export const useUpdateIP = () => {
       assetsApi.updateIP(id, payload),
     onSuccess: () => {
       message.success('IP updated');
-      queryClient.invalidateQueries({ queryKey: ['ip'] });
-      queryClient.invalidateQueries({ queryKey: ['ips'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'ip'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'ips'] });
     },
     onError: () => {
       message.error('IP update failed');
@@ -87,6 +98,7 @@ export const useUpdateIP = () => {
 };
 
 export const useUpdateIPScope = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -94,8 +106,8 @@ export const useUpdateIPScope = () => {
       assetsApi.updateIP(id, { scope_policy: scopePolicy }),
     onSuccess: () => {
       message.success('Scope policy updated');
-      queryClient.invalidateQueries({ queryKey: ['ip'] });
-      queryClient.invalidateQueries({ queryKey: ['ips'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'ip'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'ips'] });
     },
     onError: () => {
       message.error('Scope policy update failed');
@@ -104,13 +116,14 @@ export const useUpdateIPScope = () => {
 };
 
 export const useDeleteIP = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (id: string) => assetsApi.deleteIP(id),
     onSuccess: () => {
       message.success('IP deleted');
-      queryClient.invalidateQueries({ queryKey: ['ips'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'ips'] });
     },
     onError: () => {
       message.error('IP delete failed');
@@ -128,37 +141,41 @@ export const useDomainList = (params: {
   has_waf?: boolean;
   scope_policy?: ScopePolicy;
 }) => {
+  const projectKey = useProjectKey();
   return useQuery({
-    queryKey: ['domains', params],
+    queryKey: [...projectKey, 'domains', params],
     queryFn: () => assetsApi.getDomains(params),
     staleTime: 5 * 60 * 1000,
   });
 };
 
 export const useAllDomains = () => {
+  const projectKey = useProjectKey();
   return useQuery({
-    queryKey: ['domains', 'all'],
+    queryKey: [...projectKey, 'domains', 'all'],
     queryFn: () => assetsApi.getAllDomains(),
     staleTime: 5 * 60 * 1000,
   });
 };
 
 export const useDomainDetail = (name: string) => {
+  const projectKey = useProjectKey();
   return useQuery({
-    queryKey: ['domain', name],
+    queryKey: [...projectKey, 'domain', name],
     queryFn: () => assetsApi.getDomainDetail(name),
     enabled: !!name,
   });
 };
 
 export const useCreateDomain = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (payload: DomainCreatePayload) => assetsApi.createDomain(payload),
     onSuccess: () => {
       message.success('Domain created');
-      queryClient.invalidateQueries({ queryKey: ['domains'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'domains'] });
     },
     onError: () => {
       message.error('Domain create failed');
@@ -167,6 +184,7 @@ export const useCreateDomain = () => {
 };
 
 export const useUpdateDomain = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -174,8 +192,8 @@ export const useUpdateDomain = () => {
       assetsApi.updateDomain(id, payload),
     onSuccess: () => {
       message.success('Domain updated');
-      queryClient.invalidateQueries({ queryKey: ['domain'] });
-      queryClient.invalidateQueries({ queryKey: ['domains'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'domain'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'domains'] });
     },
     onError: () => {
       message.error('Domain update failed');
@@ -184,13 +202,14 @@ export const useUpdateDomain = () => {
 };
 
 export const useDeleteDomain = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (id: string) => assetsApi.deleteDomain(id),
     onSuccess: () => {
       message.success('Domain deleted');
-      queryClient.invalidateQueries({ queryKey: ['domains'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'domains'] });
     },
     onError: () => {
       message.error('Domain delete failed');
@@ -207,29 +226,32 @@ export const useServiceList = (params: {
   asset_category?: string;
   scope_policy?: ScopePolicy;
 }) => {
+  const projectKey = useProjectKey();
   return useQuery({
-    queryKey: ['services', params],
+    queryKey: [...projectKey, 'services', params],
     queryFn: () => assetsApi.getServices(params),
     staleTime: 5 * 60 * 1000,
   });
 };
 
 export const useServiceDetail = (id: string) => {
+  const projectKey = useProjectKey();
   return useQuery({
-    queryKey: ['service', id],
+    queryKey: [...projectKey, 'service', id],
     queryFn: () => assetsApi.getServiceDetail(id),
     enabled: !!id,
   });
 };
 
 export const useCreateService = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (payload: ServiceCreatePayload) => assetsApi.createService(payload),
     onSuccess: () => {
       message.success('Service created');
-      queryClient.invalidateQueries({ queryKey: ['services'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'services'] });
     },
     onError: () => {
       message.error('Service create failed');
@@ -238,6 +260,7 @@ export const useCreateService = () => {
 };
 
 export const useUpdateService = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -245,8 +268,8 @@ export const useUpdateService = () => {
       assetsApi.updateService(id, payload),
     onSuccess: () => {
       message.success('Service updated');
-      queryClient.invalidateQueries({ queryKey: ['service'] });
-      queryClient.invalidateQueries({ queryKey: ['services'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'service'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'services'] });
     },
     onError: () => {
       message.error('Service update failed');
@@ -255,13 +278,14 @@ export const useUpdateService = () => {
 };
 
 export const useDeleteService = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (id: string) => assetsApi.deleteService(id),
     onSuccess: () => {
       message.success('Service deleted');
-      queryClient.invalidateQueries({ queryKey: ['services'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'services'] });
     },
     onError: () => {
       message.error('Service delete failed');
@@ -276,21 +300,23 @@ export const useOrganizationList = (params: {
   tier?: number;
   scope_policy?: ScopePolicy;
 }) => {
+  const projectKey = useProjectKey();
   return useQuery({
-    queryKey: ['organizations', params],
+    queryKey: [...projectKey, 'organizations', params],
     queryFn: () => assetsApi.getOrganizations(params),
     staleTime: 5 * 60 * 1000,
   });
 };
 
 export const useCreateOrganization = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (payload: OrganizationCreatePayload) => assetsApi.createOrganization(payload),
     onSuccess: () => {
       message.success('Organization created');
-      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'organizations'] });
     },
     onError: () => {
       message.error('Organization create failed');
@@ -299,6 +325,7 @@ export const useCreateOrganization = () => {
 };
 
 export const useUpdateOrganization = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -311,7 +338,7 @@ export const useUpdateOrganization = () => {
     }) => assetsApi.updateOrganization(id, payload),
     onSuccess: () => {
       message.success('Organization updated');
-      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'organizations'] });
     },
     onError: () => {
       message.error('Organization update failed');
@@ -320,13 +347,14 @@ export const useUpdateOrganization = () => {
 };
 
 export const useDeleteOrganization = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (id: string) => assetsApi.deleteOrganization(id),
     onSuccess: () => {
       message.success('Organization deleted');
-      queryClient.invalidateQueries({ queryKey: ['organizations'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'organizations'] });
     },
     onError: () => {
       message.error('Organization delete failed');
@@ -341,21 +369,23 @@ export const useNetblockList = (params: {
   is_internal?: boolean;
   scope_policy?: ScopePolicy;
 }) => {
+  const projectKey = useProjectKey();
   return useQuery({
-    queryKey: ['netblocks', params],
+    queryKey: [...projectKey, 'netblocks', params],
     queryFn: () => assetsApi.getNetblocks(params),
     staleTime: 5 * 60 * 1000,
   });
 };
 
 export const useCreateNetblock = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (payload: NetblockCreatePayload) => assetsApi.createNetblock(payload),
     onSuccess: () => {
       message.success('Netblock created');
-      queryClient.invalidateQueries({ queryKey: ['netblocks'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'netblocks'] });
     },
     onError: () => {
       message.error('Netblock create failed');
@@ -364,6 +394,7 @@ export const useCreateNetblock = () => {
 };
 
 export const useUpdateNetblock = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -371,7 +402,7 @@ export const useUpdateNetblock = () => {
       assetsApi.updateNetblock(id, payload),
     onSuccess: () => {
       message.success('Netblock updated');
-      queryClient.invalidateQueries({ queryKey: ['netblocks'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'netblocks'] });
     },
     onError: () => {
       message.error('Netblock update failed');
@@ -380,13 +411,14 @@ export const useUpdateNetblock = () => {
 };
 
 export const useDeleteNetblock = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (id: string) => assetsApi.deleteNetblock(id),
     onSuccess: () => {
       message.success('Netblock deleted');
-      queryClient.invalidateQueries({ queryKey: ['netblocks'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'netblocks'] });
     },
     onError: () => {
       message.error('Netblock delete failed');
@@ -402,21 +434,23 @@ export const useCertificateList = (params: {
   is_revoked?: boolean;
   scope_policy?: ScopePolicy;
 }) => {
+  const projectKey = useProjectKey();
   return useQuery({
-    queryKey: ['certificates', params],
+    queryKey: [...projectKey, 'certificates', params],
     queryFn: () => assetsApi.getCertificates(params),
     staleTime: 5 * 60 * 1000,
   });
 };
 
 export const useCreateCertificate = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (payload: CertificateCreatePayload) => assetsApi.createCertificate(payload),
     onSuccess: () => {
       message.success('Certificate created');
-      queryClient.invalidateQueries({ queryKey: ['certificates'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'certificates'] });
     },
     onError: () => {
       message.error('Certificate create failed');
@@ -425,6 +459,7 @@ export const useCreateCertificate = () => {
 };
 
 export const useUpdateCertificate = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -437,7 +472,7 @@ export const useUpdateCertificate = () => {
     }) => assetsApi.updateCertificate(id, payload),
     onSuccess: () => {
       message.success('Certificate updated');
-      queryClient.invalidateQueries({ queryKey: ['certificates'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'certificates'] });
     },
     onError: () => {
       message.error('Certificate update failed');
@@ -446,13 +481,14 @@ export const useUpdateCertificate = () => {
 };
 
 export const useDeleteCertificate = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (id: string) => assetsApi.deleteCertificate(id),
     onSuccess: () => {
       message.success('Certificate deleted');
-      queryClient.invalidateQueries({ queryKey: ['certificates'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'certificates'] });
     },
     onError: () => {
       message.error('Certificate delete failed');
@@ -466,14 +502,16 @@ export const useClientApplicationList = (params: {
   platform?: string;
   scope_policy?: ScopePolicy;
 }) => {
+  const projectKey = useProjectKey();
   return useQuery({
-    queryKey: ['client-applications', params],
+    queryKey: [...projectKey, 'client-applications', params],
     queryFn: () => assetsApi.getClientApplications(params),
     staleTime: 5 * 60 * 1000,
   });
 };
 
 export const useCreateClientApplication = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -481,7 +519,9 @@ export const useCreateClientApplication = () => {
       assetsApi.createClientApplication(payload),
     onSuccess: () => {
       message.success('Client application created');
-      queryClient.invalidateQueries({ queryKey: ['client-applications'] });
+      queryClient.invalidateQueries({
+        queryKey: [...projectKey, 'client-applications'],
+      });
     },
     onError: () => {
       message.error('Client application create failed');
@@ -490,6 +530,7 @@ export const useCreateClientApplication = () => {
 };
 
 export const useUpdateClientApplication = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -502,7 +543,9 @@ export const useUpdateClientApplication = () => {
     }) => assetsApi.updateClientApplication(id, payload),
     onSuccess: () => {
       message.success('Client application updated');
-      queryClient.invalidateQueries({ queryKey: ['client-applications'] });
+      queryClient.invalidateQueries({
+        queryKey: [...projectKey, 'client-applications'],
+      });
     },
     onError: () => {
       message.error('Client application update failed');
@@ -511,13 +554,16 @@ export const useUpdateClientApplication = () => {
 };
 
 export const useDeleteClientApplication = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (id: string) => assetsApi.deleteClientApplication(id),
     onSuccess: () => {
       message.success('Client application deleted');
-      queryClient.invalidateQueries({ queryKey: ['client-applications'] });
+      queryClient.invalidateQueries({
+        queryKey: [...projectKey, 'client-applications'],
+      });
     },
     onError: () => {
       message.error('Client application delete failed');
@@ -533,21 +579,23 @@ export const useCredentialList = (params: {
   validation_result?: string;
   scope_policy?: ScopePolicy;
 }) => {
+  const projectKey = useProjectKey();
   return useQuery({
-    queryKey: ['credentials', params],
+    queryKey: [...projectKey, 'credentials', params],
     queryFn: () => assetsApi.getCredentials(params),
     staleTime: 5 * 60 * 1000,
   });
 };
 
 export const useCreateCredential = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (payload: CredentialCreatePayload) => assetsApi.createCredential(payload),
     onSuccess: () => {
       message.success('Credential created');
-      queryClient.invalidateQueries({ queryKey: ['credentials'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'credentials'] });
     },
     onError: () => {
       message.error('Credential create failed');
@@ -556,6 +604,7 @@ export const useCreateCredential = () => {
 };
 
 export const useUpdateCredential = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -563,7 +612,7 @@ export const useUpdateCredential = () => {
       assetsApi.updateCredential(id, payload),
     onSuccess: () => {
       message.success('Credential updated');
-      queryClient.invalidateQueries({ queryKey: ['credentials'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'credentials'] });
     },
     onError: () => {
       message.error('Credential update failed');
@@ -572,13 +621,14 @@ export const useUpdateCredential = () => {
 };
 
 export const useDeleteCredential = () => {
+  const projectKey = useProjectKey();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (id: string) => assetsApi.deleteCredential(id),
     onSuccess: () => {
       message.success('Credential deleted');
-      queryClient.invalidateQueries({ queryKey: ['credentials'] });
+      queryClient.invalidateQueries({ queryKey: [...projectKey, 'credentials'] });
     },
     onError: () => {
       message.error('Credential delete failed');
