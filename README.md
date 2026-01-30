@@ -19,6 +19,22 @@
 
 ---
 
+## ⚠️ 项目状态声明
+
+> **🚧 早期开发版本 (Early Development)**
+>
+> - 本项目目前处于 **早期开发阶段**（v1.0-alpha），功能和 API 可能随时发生变更
+> - **暂未实现完整的安全功能**，不建议在生产环境直接使用
+> - 默认配置使用明文密码和弱认证，仅适用于开发和测试环境
+> - 计划在 v1.1 版本实现用户认证、权限控制和审计日志
+>
+> **💡 欢迎反馈**
+>
+> - 欢迎提交 [Feature Request](https://github.com/bilisheep/ExternalHound/issues/new?labels=enhancement) 功能需求
+> - 欢迎提交 [Bug Report](https://github.com/bilisheep/ExternalHound/issues/new?labels=bug) 缺陷报告
+> - 欢迎参与 [Discussions](https://github.com/bilisheep/ExternalHound/discussions) 讨论
+> - 欢迎 Star ⭐ 和 Fork 本项目
+
 ## 项目简介
 
 ExternalHound 是一个专为渗透测试和安全评估设计的资产管理平台，提供强大的数据聚合、关系分析和可视化能力。
@@ -667,7 +683,7 @@ npm run test:coverage
 
 ### 开发流程
 
-1. 查看 [Issues](https://github.com/your-org/externalhound/issues) 了解待办事项
+1. 查看 [Issues](https://github.com/bilisheep/ExternalHound/issues) 了解待办事项
 2. 在 Issue 中评论表明你想要处理
 3. 遵循开发规范编写代码
 4. 确保所有测试通过
@@ -683,16 +699,49 @@ npm run test:coverage
 
 ## 安全
 
+### ⚠️ 重要安全声明
+
+**本项目处于早期开发阶段，尚未实现完整的安全功能：**
+
+- ❌ 无用户认证和授权系统
+- ❌ 无访问控制和权限管理
+- ❌ 无审计日志和操作追踪
+- ❌ 默认配置包含明文密码
+- ❌ 无数据加密和安全传输
+- ❌ 未经过安全审计和渗透测试
+
+**请勿在以下场景使用：**
+- ❌ 生产环境
+- ❌ 公网暴露
+- ❌ 处理敏感数据
+- ❌ 多租户环境
+
+**仅适用于：**
+- ✅ 本地开发测试
+- ✅ 内网隔离环境
+- ✅ 个人学习研究
+- ✅ 功能验证演示
+
+**安全功能路线图（v1.1+）：**
+- [ ] JWT 认证系统
+- [ ] RBAC 权限控制
+- [ ] 操作审计日志
+- [ ] 敏感数据加密
+- [ ] HTTPS/TLS 支持
+- [ ] API 速率限制
+- [ ] SQL 注入防护
+- [ ] XSS 防护
+
 ### 漏洞报告
 
 如果发现安全漏洞，请**不要**公开提 Issue，而是通过以下方式报告：
 
-- 邮件：security@example.com
-- 私有仓库安全通道
+- GitHub Security Advisory: https://github.com/bilisheep/ExternalHound/security/advisories/new
+- 邮件：在 Issue 中说明"安全问题"，我们会私信联系
 
 我们会在 48 小时内回复，并在修复后公开致谢。
 
-### 安全最佳实践
+### 当前环境安全建议
 
 - 定期更新依赖
 - 使用强密码
@@ -737,14 +786,14 @@ npm run test:coverage
 
 ## 许可证
 
-(待定)
+待定 (考虑使用 MIT 或 Apache 2.0)
 
 ## 联系方式
 
-- **项目主页**: https://github.com/your-org/externalhound
-- **文档**: https://docs.externalhound.com
-- **问题反馈**: https://github.com/your-org/externalhound/issues
-- **讨论区**: https://github.com/your-org/externalhound/discussions
+- **项目主页**: https://github.com/bilisheep/ExternalHound
+- **问题反馈**: https://github.com/bilisheep/ExternalHound/issues
+- **功能需求**: https://github.com/bilisheep/ExternalHound/issues/new?labels=enhancement
+- **讨论区**: https://github.com/bilisheep/ExternalHound/discussions
 
 ---
 
@@ -752,6 +801,8 @@ npm run test:coverage
 
 **[⬆ 回到顶部](#externalhound)**
 
-Made with ❤️ by the ExternalHound Team
+Made with ❤️ by the ExternalHound Community
+
+如果这个项目对你有帮助，请给个 Star ⭐
 
 </div>
