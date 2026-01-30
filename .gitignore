@@ -35,11 +35,22 @@ dist/
 # Env files
 .env
 .env.*
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
+# Config files
+backend/config.toml
 
 # IDE
 .idea/
 .vscode/
 
+# Claude Code
+.claude/
+
 # Logs
 logs/
 *.log
+backend.log
+frontend.log

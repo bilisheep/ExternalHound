@@ -14,7 +14,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./db/init/postgres/01-init.sql:/docker-entrypoint-initdb.d/01-init.sql
     networks:
       - externalhound-network
     healthcheck:
@@ -41,7 +41,7 @@ services:
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
-      - ./scripts/init-neo4j.cypher:/var/lib/neo4j/import/init.cypher
+      - ./db/init/neo4j/init.cypher:/var/lib/neo4j/import/init.cypher
     networks:
       - externalhound-network
     healthcheck:
@@ -85,7 +85,7 @@ services:
     networks:
       - externalhound-network
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD", "redis-cli", "-a", "externalhound_redis_pass", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -105,4 +105,5 @@ volumes:
 
 networks:
   externalhound-network:
+    name: externalhound-network
     driver: bridge
