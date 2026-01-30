@@ -16,6 +16,7 @@ import {
   ShareAltOutlined,
   ApartmentOutlined,
   UploadOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { useI18n } from '@/i18n';
 
@@ -115,6 +116,11 @@ const AppLayout = () => {
       key: '/graph',
       icon: <ApartmentOutlined />,
       label: <Link to="/graph">{t('menu.graph')}</Link>,
+    },
+    {
+      key: '/projects',
+      icon: <SettingOutlined />,
+      label: <Link to="/projects">{t('projects.manage')}</Link>,
     },
   ];
   const menuEntries = collectMenuEntries(menuItems);

@@ -15,6 +15,7 @@ import CredentialList from '@/pages/Assets/CredentialList';
 import RelationshipList from '@/pages/Relationships/RelationshipList';
 import GraphExplorer from '@/pages/Graph/GraphExplorer';
 import ImportManager from '@/pages/Imports/ImportManager';
+import ProjectManagement from '@/pages/Projects/ProjectManagement';
 import NotFound from '@/pages/Errors/NotFound';
 
 const AppRouter = () => {
@@ -34,6 +35,7 @@ const AppRouter = () => {
         <Route path="/assets/client-applications" element={<ClientApplicationList />} />
         <Route path="/assets/credentials" element={<CredentialList />} />
         <Route path="/graph" element={<GraphExplorer />} />
+        <Route path="/projects" element={<ProjectManagement />} />
         <Route path="/imports" element={<ImportManager />} />
         <Route path="/relationships" element={<RelationshipList />} />
       </Route>
