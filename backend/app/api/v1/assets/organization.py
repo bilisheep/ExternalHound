@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.pagination import Page
+from app.db.neo4j import Neo4jManager, get_neo4j
 from app.db.postgres import get_db
 from app.schemas.assets.organization import (
     OrganizationCreate,
@@ -158,12 +159,13 @@ async def update_organization(
 )
 async def delete_organization(
     id: UUID,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    neo4j: Neo4jManager = Depends(get_neo4j),
 ) -> SuccessResponse:
     """
-    软删除组织（标记为已删除，不物理删除）。
+    硬删除组织（物理删除）。
     """
-    service = OrganizationService(db)
+    service = OrganizationService(db, neo4j)
     await service.delete_organization(id)
     await db.commit()
     return SuccessResponse(message="Organization deleted successfully")

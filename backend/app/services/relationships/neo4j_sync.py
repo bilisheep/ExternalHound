@@ -99,6 +99,37 @@ class RelationshipGraphService:
             )
             raise
 
+    async def delete_node_relationships(
+        self,
+        node_type: str,
+        external_id: str,
+    ) -> None:
+        """
+        Delete all relationships attached to a node in Neo4j.
+
+        Args:
+            node_type: Node label
+            external_id: Node business id
+
+        Raises:
+            RuntimeError: If Neo4j driver is not initialized
+        """
+        try:
+            await self.neo4j.delete_node_relationships(node_type, external_id)
+            logger.debug(
+                "Deleted relationships for node %s:%s from Neo4j",
+                node_type,
+                external_id,
+            )
+        except Exception as exc:
+            logger.error(
+                "Failed to delete relationships for node %s:%s from Neo4j: %s",
+                node_type,
+                external_id,
+                exc,
+            )
+            raise
+
     async def find_paths(
         self,
         query: RelationshipPathQuery,

@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.pagination import Page
+from app.db.neo4j import Neo4jManager, get_neo4j
 from app.db.postgres import get_db
 from app.schemas.assets.service import ServiceCreate, ServiceRead, ServiceUpdate
 from app.schemas.common import SuccessResponse
@@ -160,9 +161,10 @@ async def update_service(
 async def delete_service(
     id: UUID,
     db: AsyncSession = Depends(get_db),
+    neo4j: Neo4jManager = Depends(get_neo4j),
 ) -> SuccessResponse:
-    """软删除服务（标记为已删除，不物理删除）。"""
-    service = ServiceService(db)
+    """硬删除服务（物理删除）。"""
+    service = ServiceService(db, neo4j)
     await service.delete_service(id)
     await db.commit()
     return SuccessResponse(message="Service deleted successfully")

@@ -2,16 +2,15 @@
 Relationship Repository.
 
 Provides data access layer for relationship CRUD operations with support
-for soft deletes, pagination, and complex filtering.
+for pagination and complex filtering.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any, Sequence
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import select, delete, and_, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -218,7 +217,7 @@ class RelationshipRepository:
 
     async def soft_delete(self, id: UUID) -> bool:
         """
-        软删除关系。
+        删除关系（硬删除）。
 
         Args:
             id: 关系UUID
@@ -229,20 +228,59 @@ class RelationshipRepository:
         Raises:
             NotFoundError: 关系不存在时抛出
         """
-        relationship = await self.get_by_id(id)
-        if relationship is None:
+        return await self.hard_delete(id)
+
+    async def hard_delete(self, id: UUID) -> bool:
+        """
+        硬删除关系。
+
+        Args:
+            id: 关系UUID
+
+        Returns:
+            删除成功返回True
+
+        Raises:
+            NotFoundError: 关系不存在时抛出
+        """
+        stmt = delete(Relationship).where(Relationship.id == id)
+        result = await self.db.execute(stmt)
+        if not result.rowcount:
             raise NotFoundError(
                 resource_type="Relationship",
                 resource_id=str(id),
             )
-
-        stmt = (
-            update(Relationship)
-            .where(Relationship.id == id)
-            .values(is_deleted=True, deleted_at=datetime.utcnow())
-        )
-        await self.db.execute(stmt)
         return True
+
+    async def hard_delete_by_node(
+        self,
+        external_id: str,
+        node_type: str,
+    ) -> int:
+        """
+        硬删除指定节点的所有关系。
+
+        Args:
+            external_id: 节点业务ID
+            node_type: 节点类型
+
+        Returns:
+            删除的关系数量
+        """
+        stmt = delete(Relationship).where(
+            or_(
+                and_(
+                    Relationship.source_external_id == external_id,
+                    Relationship.source_type == node_type,
+                ),
+                and_(
+                    Relationship.target_external_id == external_id,
+                    Relationship.target_type == node_type,
+                ),
+            ),
+        )
+        result = await self.db.execute(stmt)
+        return result.rowcount or 0
 
     async def restore(
         self,

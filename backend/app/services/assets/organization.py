@@ -13,9 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ConflictError
 from app.core.pagination import Page
+from app.db.neo4j import Neo4jManager
 from app.models.postgres.organization import Organization
 from app.repositories.assets.organization import OrganizationRepository
 from app.schemas.assets.organization import OrganizationCreate, OrganizationUpdate
+from app.schemas.relationships.relationship import NodeType
+from app.services.relationships.relationship import RelationshipService
 from app.utils.external_id import generate_organization_external_id
 
 
@@ -26,7 +29,11 @@ class OrganizationService:
     处理组织相关的业务逻辑。
     """
 
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(
+        self,
+        db: AsyncSession,
+        neo4j: Neo4jManager | None = None,
+    ) -> None:
         """
         初始化OrganizationService
 
@@ -35,6 +42,9 @@ class OrganizationService:
         """
         self.db = db
         self.repo = OrganizationRepository(db)
+        self.relationship_service = (
+            RelationshipService(db, neo4j) if neo4j else None
+        )
 
     async def create_organization(
         self,
@@ -192,7 +202,7 @@ class OrganizationService:
 
     async def delete_organization(self, id: UUID) -> bool:
         """
-        删除组织（软删除）
+        删除组织（硬删除）
 
         Args:
             id: 组织UUID
@@ -203,7 +213,14 @@ class OrganizationService:
         Raises:
             NotFoundError: 当组织不存在时
         """
-        return await self.repo.soft_delete(id)
+        organization = await self.get_organization(id)
+        deleted = await self.repo.hard_delete(id)
+        if self.relationship_service:
+            await self.relationship_service.delete_relationships_for_node(
+                external_id=organization.external_id,
+                node_type=NodeType.ORGANIZATION,
+            )
+        return deleted
 
     async def get_primary_organizations(
         self,

@@ -13,9 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ConflictError
 from app.core.pagination import Page
+from app.db.neo4j import Neo4jManager
 from app.models.postgres.ip import IP
 from app.repositories.assets.ip import IPRepository
 from app.schemas.assets.ip import IPCreate, IPUpdate
+from app.schemas.relationships.relationship import NodeType
+from app.services.relationships.relationship import RelationshipService
 from app.utils.external_id import generate_ip_external_id
 
 
@@ -26,7 +29,11 @@ class IPService:
     处理IP相关的业务逻辑。
     """
 
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(
+        self,
+        db: AsyncSession,
+        neo4j: Neo4jManager | None = None,
+    ) -> None:
         """
         初始化IPService
 
@@ -35,6 +42,9 @@ class IPService:
         """
         self.db = db
         self.repo = IPRepository(db)
+        self.relationship_service = (
+            RelationshipService(db, neo4j) if neo4j else None
+        )
 
     async def create_ip(self, data: IPCreate) -> IP:
         """
@@ -210,7 +220,7 @@ class IPService:
 
     async def delete_ip(self, id: UUID) -> bool:
         """
-        删除IP（软删除）
+        删除IP（硬删除）
 
         Args:
             id: IP UUID
@@ -221,7 +231,14 @@ class IPService:
         Raises:
             NotFoundError: 当IP不存在时
         """
-        return await self.repo.soft_delete(id)
+        ip = await self.get_ip(id)
+        deleted = await self.repo.hard_delete(id)
+        if self.relationship_service:
+            await self.relationship_service.delete_relationships_for_node(
+                external_id=ip.external_id,
+                node_type=NodeType.IP,
+            )
+        return deleted
 
     async def get_cloud_ips(
         self,

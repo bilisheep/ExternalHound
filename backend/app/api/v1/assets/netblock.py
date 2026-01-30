@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.pagination import Page
+from app.db.neo4j import Neo4jManager, get_neo4j
 from app.db.postgres import get_db
 from app.schemas.assets.netblock import NetblockCreate, NetblockRead, NetblockUpdate
 from app.schemas.common import SuccessResponse
@@ -163,9 +164,10 @@ async def update_netblock(
 async def delete_netblock(
     id: UUID,
     db: AsyncSession = Depends(get_db),
+    neo4j: Neo4jManager = Depends(get_neo4j),
 ) -> SuccessResponse:
-    """软删除网段（标记为已删除，不物理删除）。"""
-    service = NetblockService(db)
+    """硬删除网段（物理删除）。"""
+    service = NetblockService(db, neo4j)
     await service.delete_netblock(id)
     await db.commit()
     return SuccessResponse(message="Netblock deleted successfully")

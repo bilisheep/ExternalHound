@@ -14,9 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
 from app.core.pagination import Page
+from app.db.neo4j import Neo4jManager
 from app.models.postgres.netblock import Netblock
 from app.repositories.assets.netblock import NetblockRepository
 from app.schemas.assets.netblock import NetblockCreate, NetblockUpdate
+from app.schemas.relationships.relationship import NodeType
+from app.services.relationships.relationship import RelationshipService
 from app.utils.external_id import generate_netblock_external_id
 
 
@@ -27,7 +30,11 @@ class NetblockService:
     处理网段相关的业务逻辑，包括CIDR capacity自动计算和私有网段自动判定。
     """
 
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(
+        self,
+        db: AsyncSession,
+        neo4j: Neo4jManager | None = None,
+    ) -> None:
         """
         初始化NetblockService。
 
@@ -36,6 +43,9 @@ class NetblockService:
         """
         self.db = db
         self.repo = NetblockRepository(db)
+        self.relationship_service = (
+            RelationshipService(db, neo4j) if neo4j else None
+        )
 
     async def create_netblock(self, data: NetblockCreate) -> Netblock:
         """
@@ -206,7 +216,7 @@ class NetblockService:
 
     async def delete_netblock(self, id: UUID) -> bool:
         """
-        删除网段（软删除）。
+        删除网段（硬删除）。
 
         Args:
             id: 网段UUID
@@ -217,7 +227,14 @@ class NetblockService:
         Raises:
             NotFoundError: 当网段不存在时
         """
-        return await self.repo.soft_delete(id)
+        netblock = await self.get_netblock(id)
+        deleted = await self.repo.hard_delete(id)
+        if self.relationship_service:
+            await self.relationship_service.delete_relationships_for_node(
+                external_id=netblock.external_id,
+                node_type=NodeType.NETBLOCK,
+            )
+        return deleted
 
     async def get_internal_netblocks(
         self, skip: int = 0, limit: int = 100

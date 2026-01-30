@@ -55,18 +55,16 @@ class RelationshipService:
         """
         创建新关系。
 
-        如果存在相同key的软删除关系，将恢复该关系并更新属性。
-
         Args:
             data: 关系创建数据
 
         Returns:
-            创建或恢复的关系实例
+            创建的关系实例
 
         Raises:
-            ConflictError: 存在相同key的活跃关系时抛出
+            ConflictError: 存在相同key的关系时抛出
         """
-        # 检查是否存在关系（包括软删除的）
+        # 检查是否存在关系
         existing = await self.repo.get_by_key(
             source_external_id=data.source_external_id,
             source_type=data.source_type.value,
@@ -74,11 +72,10 @@ class RelationshipService:
             target_type=data.target_type.value,
             relation_type=data.relation_type.value,
             edge_key=data.edge_key,
-            include_deleted=True,
         )
 
-        # 如果存在活跃关系，抛出冲突错误
-        if existing and not existing.is_deleted:
+        # 如果存在关系，抛出冲突错误
+        if existing:
             raise ConflictError(
                 resource_type="Relationship",
                 field="unique_key",
@@ -87,36 +84,6 @@ class RelationshipService:
                     f"->{data.target_external_id}:{data.relation_type.value}"
                 ),
             )
-
-        # 如果存在软删除的关系，恢复它并更新属性
-        if existing and existing.is_deleted:
-            merged_properties = self._merge_properties(
-                existing.properties,
-                data.properties,
-            )
-            restored = await self.repo.restore(
-                existing.id,
-                properties=merged_properties,
-                created_by=data.created_by or existing.created_by,
-            )
-
-            # 同步到Neo4j（如果失败，PostgreSQL事务会在上层回滚）
-            try:
-                await self.graph.upsert_relationship(restored)
-            except Exception as exc:
-                logger.error(
-                    "Failed to sync restored relationship %s to Neo4j: %s",
-                    restored.id,
-                    exc,
-                )
-                # 重新抛出异常，让上层处理回滚
-                raise
-
-            logger.info(
-                "Restored soft-deleted relationship %s",
-                restored.id,
-            )
-            return restored
 
         # 创建新关系
         relationship = await self.repo.create(
@@ -196,7 +163,7 @@ class RelationshipService:
             target_type: 按目标节点类型过滤
             relation_type: 按关系类型过滤
             edge_key: 按边键过滤
-            include_deleted: 是否包含软删除的关系
+            include_deleted: 是否包含已删除的关系（当前使用硬删除，通常为空）
 
         Returns:
             关系分页结果
@@ -263,7 +230,7 @@ class RelationshipService:
 
     async def delete_relationship(self, id: UUID) -> bool:
         """
-        删除关系（PostgreSQL软删除，Neo4j硬删除）。
+        删除关系（PostgreSQL硬删除，Neo4j硬删除）。
 
         Args:
             id: 关系UUID
@@ -274,8 +241,8 @@ class RelationshipService:
         Raises:
             NotFoundError: 关系不存在时抛出
         """
-        # PostgreSQL软删除
-        await self.repo.soft_delete(id)
+        # PostgreSQL硬删除
+        await self.repo.hard_delete(id)
 
         # Neo4j硬删除（如果失败，PostgreSQL事务会在上层回滚）
         try:
@@ -292,6 +259,50 @@ class RelationshipService:
         logger.info("Deleted relationship %s", id)
 
         return True
+
+    async def delete_relationships_for_node(
+        self,
+        external_id: str,
+        node_type: NodeType,
+    ) -> int:
+        """
+        删除节点关联的所有关系（PostgreSQL硬删除，Neo4j硬删除）。
+
+        Args:
+            external_id: 节点业务ID
+            node_type: 节点类型
+
+        Returns:
+            删除的关系数量
+        """
+        deleted_count = await self.repo.hard_delete_by_node(
+            external_id=external_id,
+            node_type=node_type.value,
+        )
+
+        try:
+            await self.graph.delete_node_relationships(
+                node_type.value,
+                external_id,
+            )
+        except Exception as exc:
+            logger.error(
+                "Failed to delete relationships for node %s:%s from Neo4j: %s",
+                node_type.value,
+                external_id,
+                exc,
+            )
+            raise
+
+        if deleted_count:
+            logger.info(
+                "Deleted %d relationships for node %s:%s",
+                deleted_count,
+                node_type.value,
+                external_id,
+            )
+
+        return deleted_count
 
     async def find_paths(
         self,

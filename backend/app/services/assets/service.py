@@ -9,9 +9,12 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
+from app.db.neo4j import Neo4jManager
 from app.schemas.common import Page
 from app.repositories.assets.service import ServiceRepository
 from app.schemas.assets.service import ServiceCreate, ServiceUpdate
+from app.schemas.relationships.relationship import NodeType
+from app.services.relationships.relationship import RelationshipService
 from app.utils.external_id import generate_service_external_id
 
 
@@ -100,7 +103,11 @@ class ServiceService:
         },
     }
 
-    def __init__(self, db: AsyncSession):
+    def __init__(
+        self,
+        db: AsyncSession,
+        neo4j: Neo4jManager | None = None,
+    ):
         """初始化服务。
 
         Args:
@@ -108,6 +115,9 @@ class ServiceService:
         """
         self.db = db
         self.repo = ServiceRepository(db)
+        self.relationship_service = (
+            RelationshipService(db, neo4j) if neo4j else None
+        )
 
     def _detect_is_http(
         self, port: int, service_name: str | None, product: str | None
@@ -463,7 +473,7 @@ class ServiceService:
         return await self.repo.update(id, **update_data)
 
     async def delete_service(self, id: UUID):
-        """软删除服务（标记为已删除，不物理删除）。
+        """硬删除服务（物理删除）。
 
         Args:
             id: 服务UUID
@@ -477,4 +487,9 @@ class ServiceService:
                 resource_type="Service",
                 resource_id=str(id),
             )
-        await self.repo.soft_delete(id)
+        await self.repo.hard_delete(id)
+        if self.relationship_service:
+            await self.relationship_service.delete_relationships_for_node(
+                external_id=service.external_id,
+                node_type=NodeType.SERVICE,
+            )

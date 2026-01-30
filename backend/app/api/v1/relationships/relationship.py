@@ -54,7 +54,7 @@ async def create_relationship(
     **关系类型验证**：系统会自动验证源节点和目标节点类型是否符合关系类型的规则。
     例如：OWNS_DOMAIN 关系要求源节点为 Organization，目标节点为 Domain。
 
-    **软删除恢复**：如果相同的关系之前被软删除，创建操作会恢复该关系并合并属性。
+    **重复关系**：如果存在相同key的关系，会返回冲突错误。
     """
     service = RelationshipService(db, neo4j)
     relationship = await service.create_relationship(data)
@@ -106,7 +106,7 @@ async def list_relationships(
     - 可按目标节点ID、类型过滤
     - 可按关系类型过滤
     - 可按边唯一键过滤
-    - 可选择是否包含软删除的关系
+    - 可选择是否包含已删除的关系（硬删除后通常为空）
 
     **使用场景**：
     - 查询某个节点的所有出边：传入source_external_id
@@ -178,10 +178,8 @@ async def delete_relationship(
     删除关系。
 
     **删除策略**：
-    - PostgreSQL：软删除（标记is_deleted=True）
+    - PostgreSQL：硬删除（物理删除）
     - Neo4j：硬删除（直接删除边）
-
-    软删除的关系可以通过创建相同关系来恢复。
     """
     service = RelationshipService(db, neo4j)
     await service.delete_relationship(id)

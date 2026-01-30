@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+import re
 from typing import Generic, TypeVar, Type, Sequence
 from uuid import UUID
 
@@ -30,10 +30,10 @@ class BaseRepository(Generic[ModelT]):
     - 创建（create）
     - 读取（get_by_id, get_by_external_id, list_all）
     - 更新（update）
-    - 删除（delete, soft_delete）
+    - 删除（hard_delete/soft_delete，均执行硬删除）
     - 分页查询（paginate）
 
-    所有操作都自动过滤软删除的记录。
+    查询操作默认过滤is_deleted标记。
 
     Attributes:
         model: ORM模型类
@@ -71,12 +71,15 @@ class BaseRepository(Generic[ModelT]):
             await self.db.refresh(instance)
             return instance
         except IntegrityError as e:
-            # 唯一约束冲突
+            field, value = self._parse_unique_violation(e)
             raise ConflictError(
                 resource_type=self.model.__name__,
-                field="unknown",
-                value="unknown",
-                details={"original_error": str(e.orig)}
+                field=field,
+                value=value,
+                details={
+                    "original_error": str(e.orig),
+                    "constraint_name": getattr(e.orig, "constraint_name", None),
+                },
             )
 
     async def get_by_id(self, id: UUID) -> ModelT | None:
@@ -206,17 +209,20 @@ class BaseRepository(Generic[ModelT]):
             await self.db.refresh(instance)
             return instance
         except IntegrityError as e:
-            # 唯一约束冲突
+            field, value = self._parse_unique_violation(e)
             raise ConflictError(
                 resource_type=self.model.__name__,
-                field="unknown",
-                value="unknown",
-                details={"original_error": str(e.orig)}
+                field=field,
+                value=value,
+                details={
+                    "original_error": str(e.orig),
+                    "constraint_name": getattr(e.orig, "constraint_name", None),
+                },
             )
 
     async def soft_delete(self, id: UUID) -> bool:
         """
-        软删除记录
+        删除记录（硬删除）
 
         Args:
             id: UUID主键
@@ -227,29 +233,13 @@ class BaseRepository(Generic[ModelT]):
         Raises:
             NotFoundError: 当记录不存在时
         """
-        instance = await self.get_by_id(id)
-        if instance is None:
-            raise NotFoundError(
-                resource_type=self.model.__name__,
-                resource_id=str(id)
-            )
-
-        stmt = (
-            update(self.model)
-            .where(self.model.id == id)
-            .values(
-                is_deleted=True,
-                deleted_at=datetime.utcnow()
-            )
-        )
-        await self.db.execute(stmt)
-        return True
+        return await self.hard_delete(id)
 
     async def hard_delete(self, id: UUID) -> bool:
         """
         硬删除记录（物理删除）
 
-        警告：此操作不可逆，仅用于测试或特殊场景。
+        警告：此操作不可逆，请谨慎使用。
 
         Args:
             id: UUID主键
@@ -260,16 +250,43 @@ class BaseRepository(Generic[ModelT]):
         Raises:
             NotFoundError: 当记录不存在时
         """
-        instance = await self.get_by_id(id)
-        if instance is None:
+        stmt = delete(self.model).where(self.model.id == id)
+        result = await self.db.execute(stmt)
+        if not result.rowcount:
             raise NotFoundError(
                 resource_type=self.model.__name__,
-                resource_id=str(id)
+                resource_id=str(id),
             )
-
-        stmt = delete(self.model).where(self.model.id == id)
-        await self.db.execute(stmt)
         return True
+
+    def _parse_unique_violation(self, exc: IntegrityError) -> tuple[str, str]:
+        """
+        从唯一约束异常中提取字段和值。
+
+        Args:
+            exc: IntegrityError异常
+
+        Returns:
+            (field, value)元组
+        """
+        field = "unknown"
+        value = "unknown"
+        message = str(getattr(exc, "orig", exc))
+        match = re.search(r"Key \((?P<field>[^)]+)\)=\((?P<value>[^)]+)\)", message)
+        if match:
+            field = match.group("field")
+            value = match.group("value")
+            return field, value
+
+        constraint_name = getattr(exc.orig, "constraint_name", None)
+        table_name = getattr(self.model, "__tablename__", None)
+        if constraint_name and table_name:
+            prefix = f"{table_name}_"
+            if constraint_name.startswith(prefix):
+                field = constraint_name[len(prefix):]
+                if field.endswith("_key"):
+                    field = field[:-4]
+        return field, value
 
     async def count(self, **filters) -> int:
         """

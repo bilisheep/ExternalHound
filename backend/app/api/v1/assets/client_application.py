@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.pagination import Page
+from app.db.neo4j import Neo4jManager, get_neo4j
 from app.db.postgres import get_db
 from app.schemas.assets.client_application import (
     ClientApplicationCreate,
@@ -149,9 +150,10 @@ async def update_application(
 async def delete_application(
     id: UUID,
     db: AsyncSession = Depends(get_db),
+    neo4j: Neo4jManager = Depends(get_neo4j),
 ) -> SuccessResponse:
-    """软删除客户端应用（标记为已删除，不物理删除）。"""
-    service = ClientApplicationService(db)
+    """硬删除客户端应用（物理删除）。"""
+    service = ClientApplicationService(db, neo4j)
     await service.delete_application(id)
     await db.commit()
     return SuccessResponse(message="Client application deleted successfully")

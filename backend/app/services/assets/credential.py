@@ -9,16 +9,23 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
+from app.db.neo4j import Neo4jManager
 from app.schemas.common import Page
 from app.repositories.assets.credential import CredentialRepository
 from app.schemas.assets.credential import CredentialCreate, CredentialUpdate
+from app.schemas.relationships.relationship import NodeType
+from app.services.relationships.relationship import RelationshipService
 from app.utils.external_id import generate_credential_external_id
 
 
 class CredentialService:
     """凭证资产的业务逻辑服务。"""
 
-    def __init__(self, db: AsyncSession):
+    def __init__(
+        self,
+        db: AsyncSession,
+        neo4j: Neo4jManager | None = None,
+    ):
         """初始化服务。
 
         Args:
@@ -26,6 +33,9 @@ class CredentialService:
         """
         self.db = db
         self.repo = CredentialRepository(db)
+        self.relationship_service = (
+            RelationshipService(db, neo4j) if neo4j else None
+        )
 
     async def create_credential(self, data: CredentialCreate):
         """创建凭证。
@@ -293,7 +303,7 @@ class CredentialService:
         return await self.repo.update(id, **update_data)
 
     async def delete_credential(self, id: UUID):
-        """软删除凭证（标记为已删除，不物理删除）。
+        """硬删除凭证（物理删除）。
 
         Args:
             id: 凭证UUID
@@ -307,4 +317,9 @@ class CredentialService:
                 resource_type="Credential",
                 resource_id=str(id),
             )
-        await self.repo.soft_delete(id)
+        await self.repo.hard_delete(id)
+        if self.relationship_service:
+            await self.relationship_service.delete_relationships_for_node(
+                external_id=credential.external_id,
+                node_type=NodeType.CREDENTIAL,
+            )

@@ -10,16 +10,23 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
+from app.db.neo4j import Neo4jManager
 from app.schemas.common import Page
 from app.repositories.assets.certificate import CertificateRepository
 from app.schemas.assets.certificate import CertificateCreate, CertificateUpdate
+from app.schemas.relationships.relationship import NodeType
+from app.services.relationships.relationship import RelationshipService
 from app.utils.external_id import generate_certificate_external_id
 
 
 class CertificateService:
     """证书资产的业务逻辑服务。"""
 
-    def __init__(self, db: AsyncSession):
+    def __init__(
+        self,
+        db: AsyncSession,
+        neo4j: Neo4jManager | None = None,
+    ):
         """初始化服务。
 
         Args:
@@ -27,6 +34,9 @@ class CertificateService:
         """
         self.db = db
         self.repo = CertificateRepository(db)
+        self.relationship_service = (
+            RelationshipService(db, neo4j) if neo4j else None
+        )
 
     async def create_certificate(self, data: CertificateCreate):
         """创建证书，自动计算过期状态、自签名判断、剩余天数和SAN数量。
@@ -301,7 +311,7 @@ class CertificateService:
         return await self.repo.update(id, **update_data)
 
     async def delete_certificate(self, id: UUID):
-        """软删除证书（标记为已删除，不物理删除）。
+        """硬删除证书（物理删除）。
 
         Args:
             id: 证书UUID
@@ -315,4 +325,9 @@ class CertificateService:
                 resource_type="Certificate",
                 resource_id=str(id),
             )
-        await self.repo.soft_delete(id)
+        await self.repo.hard_delete(id)
+        if self.relationship_service:
+            await self.relationship_service.delete_relationships_for_node(
+                external_id=certificate.external_id,
+                node_type=NodeType.CERTIFICATE,
+            )

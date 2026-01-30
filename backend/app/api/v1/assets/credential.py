@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.pagination import Page
+from app.db.neo4j import Neo4jManager, get_neo4j
 from app.db.postgres import get_db
 from app.schemas.assets.credential import (
     CredentialCreate,
@@ -159,9 +160,10 @@ async def update_credential(
 async def delete_credential(
     id: UUID,
     db: AsyncSession = Depends(get_db),
+    neo4j: Neo4jManager = Depends(get_neo4j),
 ) -> SuccessResponse:
-    """软删除凭证（标记为已删除，不物理删除）。"""
-    service = CredentialService(db)
+    """硬删除凭证（物理删除）。"""
+    service = CredentialService(db, neo4j)
     await service.delete_credential(id)
     await db.commit()
     return SuccessResponse(message="Credential deleted successfully")

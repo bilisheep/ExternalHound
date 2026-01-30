@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.pagination import Page
+from app.db.neo4j import Neo4jManager, get_neo4j
 from app.db.postgres import get_db
 from app.schemas.assets.domain import (
     DomainCreate,
@@ -185,12 +186,13 @@ async def update_domain(
 )
 async def delete_domain(
     id: UUID,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    neo4j: Neo4jManager = Depends(get_neo4j),
 ) -> SuccessResponse:
     """
-    软删除域名（标记为已删除，不物理删除）。
+    硬删除域名（物理删除）。
     """
-    service = DomainService(db)
+    service = DomainService(db, neo4j)
     await service.delete_domain(id)
     await db.commit()
     return SuccessResponse(message="Domain deleted successfully")

@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.pagination import Page
+from app.db.neo4j import Neo4jManager, get_neo4j
 from app.db.postgres import get_db
 from app.schemas.assets.certificate import (
     CertificateCreate,
@@ -160,9 +161,10 @@ async def update_certificate(
 async def delete_certificate(
     id: UUID,
     db: AsyncSession = Depends(get_db),
+    neo4j: Neo4jManager = Depends(get_neo4j),
 ) -> SuccessResponse:
-    """软删除证书（标记为已删除，不物理删除）。"""
-    service = CertificateService(db)
+    """硬删除证书（物理删除）。"""
+    service = CertificateService(db, neo4j)
     await service.delete_certificate(id)
     await db.commit()
     return SuccessResponse(message="Certificate deleted successfully")

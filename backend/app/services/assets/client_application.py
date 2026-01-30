@@ -9,19 +9,26 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
+from app.db.neo4j import Neo4jManager
 from app.schemas.common import Page
 from app.repositories.assets.client_application import ClientApplicationRepository
 from app.schemas.assets.client_application import (
     ClientApplicationCreate,
     ClientApplicationUpdate,
 )
+from app.schemas.relationships.relationship import NodeType
+from app.services.relationships.relationship import RelationshipService
 from app.utils.external_id import generate_client_application_external_id
 
 
 class ClientApplicationService:
     """客户端应用资产的业务逻辑服务。"""
 
-    def __init__(self, db: AsyncSession):
+    def __init__(
+        self,
+        db: AsyncSession,
+        neo4j: Neo4jManager | None = None,
+    ):
         """初始化服务。
 
         Args:
@@ -29,6 +36,9 @@ class ClientApplicationService:
         """
         self.db = db
         self.repo = ClientApplicationRepository(db)
+        self.relationship_service = (
+            RelationshipService(db, neo4j) if neo4j else None
+        )
 
     async def create_application(self, data: ClientApplicationCreate):
         """创建客户端应用。
@@ -258,7 +268,7 @@ class ClientApplicationService:
         return await self.repo.update(id, **update_data)
 
     async def delete_application(self, id: UUID):
-        """软删除应用（标记为已删除，不物理删除）。
+        """硬删除应用（物理删除）。
 
         Args:
             id: 应用UUID
@@ -272,4 +282,9 @@ class ClientApplicationService:
                 resource_type="ClientApplication",
                 resource_id=str(id),
             )
-        await self.repo.soft_delete(id)
+        await self.repo.hard_delete(id)
+        if self.relationship_service:
+            await self.relationship_service.delete_relationships_for_node(
+                external_id=application.external_id,
+                node_type=NodeType.CLIENT_APPLICATION,
+            )

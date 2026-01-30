@@ -13,9 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ConflictError
 from app.core.pagination import Page
+from app.db.neo4j import Neo4jManager
 from app.models.postgres.domain import Domain
 from app.repositories.assets.domain import DomainRepository
 from app.schemas.assets.domain import DomainCreate, DomainUpdate
+from app.schemas.relationships.relationship import NodeType
+from app.services.relationships.relationship import RelationshipService
 from app.utils.external_id import generate_domain_external_id
 
 
@@ -26,7 +29,11 @@ class DomainService:
     处理域名相关的业务逻辑。
     """
 
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(
+        self,
+        db: AsyncSession,
+        neo4j: Neo4jManager | None = None,
+    ) -> None:
         """
         初始化DomainService
 
@@ -35,6 +42,9 @@ class DomainService:
         """
         self.db = db
         self.repo = DomainRepository(db)
+        self.relationship_service = (
+            RelationshipService(db, neo4j) if neo4j else None
+        )
 
     async def create_domain(self, data: DomainCreate) -> Domain:
         """
@@ -217,7 +227,7 @@ class DomainService:
 
     async def delete_domain(self, id: UUID) -> bool:
         """
-        删除域名（软删除）
+        删除域名（硬删除）
 
         Args:
             id: 域名UUID
@@ -228,7 +238,14 @@ class DomainService:
         Raises:
             NotFoundError: 当域名不存在时
         """
-        return await self.repo.soft_delete(id)
+        domain = await self.get_domain(id)
+        deleted = await self.repo.hard_delete(id)
+        if self.relationship_service:
+            await self.relationship_service.delete_relationships_for_node(
+                external_id=domain.external_id,
+                node_type=NodeType.DOMAIN,
+            )
+        return deleted
 
     async def get_subdomains(
         self,
